@@ -1,0 +1,14 @@
+material campo_gara/area3
+{
+  technique
+  {
+    pass
+    {
+      texture_unit
+      {
+        texture area3.png
+        scale 1 1
+      }
+    }
+  }
+}

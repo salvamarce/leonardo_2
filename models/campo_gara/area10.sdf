@@ -1,0 +1,45 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+	<model name="campo_gara">
+	<static>true</static>
+		<link name="p10">
+    		<pose>3.55 1.445 2.072 0 0 0</pose>
+			<visual name="p10_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p10_aruco10_joint" type="fixed">
+			<parent>p10</parent>
+			<child>aruco10</child>
+		</joint>
+
+		<link name="aruco10">
+    		<pose>3.55 1.445 2.074 0 0 0</pose>
+			<visual name="aruco10_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area10</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+	</model>
+</sdf>

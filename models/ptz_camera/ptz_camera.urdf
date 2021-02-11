@@ -1,0 +1,194 @@
+<?xml version="1.0"?>
+<robot name="ptz_camera">
+	
+	<link name="world" />	
+	
+	<joint name="fixed" type="fixed">
+		<origin xyz="16.0 10.0 2.0" rpy="0 -3.14 1.57" />
+    	<parent link="world"/>
+    	<child link="base_link"/>
+  	</joint>
+
+	<link name="base_link">
+		<visual>
+			<geometry>
+				<cylinder length="0.10" radius="0.05" />
+			</geometry>
+			<origin xpy="0 0 0" rpy="0 0 0" />
+			<color rgba="0 1 0 1" />
+		</visual>
+		<collision>
+			<geometry>
+				<cylinder length="0.10" radius="0.05" />
+			</geometry>
+			<origin xpy="0 0 0" rpy="0 0 0" />
+		</collision>
+		<inertial>
+      		<origin xyz="0 0 0" /> 
+      		<mass value="0.01" />
+      		<inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.001" />
+   		</inertial>
+	</link>
+
+	<joint name="pan_joint" type="revolute" >
+		<parent link="base_link" />
+		<child link="pan_link" />
+		<origin xyz ="0 0 0" />
+		<axis 	xyz ="0 0 1" />
+		<limit effort="300" velocity= "0.1" lower="-3.14" upper="3.14" />
+		<dynamics damping ="50" friction="1"/>
+	</joint>
+
+	<link name="pan_link">
+		<visual>
+			<geometry>
+				<cylinder length="0.10" radius="0.05" />
+			</geometry>
+			<origin xpy="0 0 0.05" rpy="0 0 0" />
+		</visual>
+		<collision>
+			<geometry>
+				<cylinder length="0.10" radius="0.05" />
+			</geometry>
+			<origin xpy="0 0 0" rpy="0 0 0" />
+			<color rgba="1 0 0 1" />
+		</collision>
+		<inertial>
+      		<origin xyz="0 0 0" /> 
+      		<mass value="0.01" />
+      		<inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.001" />
+   		</inertial>
+	</link>
+
+	<joint name="tilt_joint" type="revolute" >
+		<parent link="pan_link" />
+		<child link="tilt_link" />
+		<origin xyz ="0 0 0.1" />
+		<axis 	xyz ="0 1 0" />
+		<limit effort="300" velocity= "0.1" lower="-3.14" upper="3.14" />
+		<dynamics damping ="50" friction="1"/>
+	</joint>
+
+	<link name="tilt_link">
+		<visual>
+			<geometry>
+				<cylinder length="0.10" radius="0.05" />
+			</geometry>
+			<origin xpy="0 0 0" rpy="1.57 0 0" />
+			<color rgba="0 0 1 1" />
+		</visual>
+		<collision>
+			<geometry>
+				<cylinder length="0.10" radius="0.05" />
+			</geometry>
+			<origin xpy="0 0 0" rpy="0 0 0" />
+		</collision>
+		<inertial>
+      		<origin xyz="0 0 0" /> 
+      		<mass value="0.01" />
+      		<inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.001" />
+   		</inertial>
+	</link>
+
+	<joint name="camera_joint" type="fixed">
+		<parent link="tilt_link" />
+		<child link="camera_link" />
+		<origin xyz="0.05 0 0" rpy="0 0 0" />
+	</joint>
+
+	<link name="camera_link">
+		<visual>
+			<geometry>
+				<box  size="0.05 0.1 0.02" />
+			</geometry>
+			<origin xpy="0 0 0" rpy="0 0 0" />
+			<color rgba="0.5 0.5 0.5 1" />
+		</visual>
+		<collision>
+			<geometry>
+				<box  size="0.1 0.2 0.05" />
+			</geometry>
+			<origin xpy="0 0 0" rpy="0 0 0" />
+		</collision>
+		<inertial>
+      		<origin xyz="0 0 0" /> 
+      		<mass value="0.01" />
+      		<inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.001" />
+   		</inertial>
+	</link>
+
+	<gazebo reference="camera_link">
+    	<sensor name="_camera_raw" type="camera">
+			<update_rate>25</update_rate>
+		 	<camera name="pan_tilt_cam">
+		  		<horizontal_fov>1.06</horizontal_fov>
+				<vertical_fov>0.649</vertical_fov>
+		    	<image>
+		     		<width>1920</width>
+		      		<height>1080</height>
+		      		<format>B8G8R8</format>
+		    	</image>
+		    	<clip>
+		      		<near>0.02</near>
+		      		<far>300</far>
+	    		</clip>
+		    	<noise>
+		      		<type>gaussian</type>
+					<mean>0.0</mean>
+					<stddev>0.008</stddev>
+				</noise>
+		  	</camera>
+		  	<plugin filename="libgazebo_ros_camera.so" name="_camera_raw_controller">
+		    	<robotNamespace></robotNamespace>
+		    	<alwaysOn>true</alwaysOn>
+		    	<updateRate>30</updateRate>
+		    	<cameraName>camera_raw</cameraName>
+		    	<imageTopicName>image_raw</imageTopicName>
+		    	<cameraInfoTopicName>camera_info</cameraInfoTopicName>
+		    	<frameName>/camera_raw_link</frameName>
+		    	<hackBaseline>0.0</hackBaseline>
+		    	<distortionK1>0.0</distortionK1>
+		    	<distortionK2>0.0</distortionK2>
+		    	<distortionK3>0.0</distortionK3>
+		    	<distortionT1>0.0</distortionT1>
+		    	<distortionT2>0.0</distortionT2>
+		  	</plugin>
+		</sensor>
+  	</gazebo>
+
+
+	<!-- Transmissions -->
+	<transmission name="pan_trans" >
+		<robotNamespace>ptz_camera</robotNamespace>
+		<type>transmission_interface/SimpleTransmission</type>
+		<joint name="pan_joint">
+			<hardwareInterface>PositionJointInterface</hardwareInterface>
+		</joint>
+		<actuator name="motor_pan">
+			<hardwareInterface>PositionJointInterface</hardwareInterface>
+			<mechanicalReduction>1</mechanicalReduction>
+		</actuator>	
+	</transmission>
+
+	<transmission name="tilt_trans" >
+		<robotNamespace>ptz_camera</robotNamespace>
+		<type>transmission_interface/SimpleTransmission</type>
+		<joint name="tilt_joint">
+					<hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+
+		</joint>
+		<actuator name="motor_tilt">
+					<hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+
+			<mechanicalReduction>1</mechanicalReduction>
+		</actuator>	
+	</transmission>
+<!--
+	<gazebo>
+		<plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+			<robotNamespace>ptz_camera</robotNamespace>
+			<robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+		</plugin>
+	</gazebo>
+-->
+</robot>
