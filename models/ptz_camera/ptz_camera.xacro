@@ -1,6 +1,26 @@
 <?xml version="1.0"?>
-<robot name="ptz_camera">
+
+<robot name="ptz_camera" xmlns:xacro="http://ros.org/wiki/xacro">
+	<xacro:property name="M_PI" value="3.14159"/>
+	<xacro:property name="pan_link_radius" value="0.05" />
+	<xacro:property name="pan_link_len" value="0.10" />
+	<xacro:property name="tilt_link_radius" value="0.05" />
+	<xacro:property name="tilt_link_len" value="0.10" />
 	
+	
+	<xacro:macro name="transmission_block" params="joint_name">
+	  <transmission name="${joint_name}_tran">
+	    <type>transmission_interface/SimpleTransmission</type>
+	    <joint name="${joint_name}">
+	      <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+	    </joint>
+	    <actuator name="${joint_name}_motor">
+	      <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+          <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
+	  </transmission>
+	</xacro:macro>
+
 	<link name="world" />	
 	
 	<joint name="fixed" type="fixed">
@@ -26,29 +46,29 @@
 		<inertial>
       		<origin xyz="0 0 0" /> 
       		<mass value="0.01" />
-      		<inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.001" />
+      		<inertia  ixx="0.01" ixy="0.0"  ixz="0.0"  iyy="0.01"  iyz="0.0"  izz="0.01" />
    		</inertial>
 	</link>
 
-	<joint name="pan_joint" type="revolute" >
+	<joint name="pan" type="revolute" >
 		<parent link="base_link" />
 		<child link="pan_link" />
 		<origin xyz ="0 0 0" />
 		<axis 	xyz ="0 0 1" />
-		<limit effort="300" velocity= "0.1" lower="-3.14" upper="3.14" />
+		<limit effort="300" velocity= "1.5" lower="-3.14" upper="3.14" />
 		<dynamics damping ="50" friction="1"/>
 	</joint>
 
 	<link name="pan_link">
 		<visual>
 			<geometry>
-				<cylinder length="0.10" radius="0.05" />
+				<cylinder length="${pan_link_len}" radius="${pan_link_radius}" />
 			</geometry>
 			<origin xpy="0 0 0.05" rpy="0 0 0" />
 		</visual>
 		<collision>
 			<geometry>
-				<cylinder length="0.10" radius="0.05" />
+				<cylinder length="${pan_link_len}" radius="${pan_link_radius}" />
 			</geometry>
 			<origin xpy="0 0 0" rpy="0 0 0" />
 			<color rgba="1 0 0 1" />
@@ -56,37 +76,37 @@
 		<inertial>
       		<origin xyz="0 0 0" /> 
       		<mass value="0.01" />
-      		<inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.001" />
+      		<inertia  ixx="0.01" ixy="0.0"  ixz="0.0"  iyy="0.01"  iyz="0.0"  izz="0.01" />
    		</inertial>
 	</link>
 
-	<joint name="tilt_joint" type="revolute" >
+	<joint name="tilt" type="revolute" >
 		<parent link="pan_link" />
 		<child link="tilt_link" />
 		<origin xyz ="0 0 0.1" />
 		<axis 	xyz ="0 1 0" />
-		<limit effort="300" velocity= "0.1" lower="-3.14" upper="3.14" />
+		<limit effort="300" velocity= "1.5" lower="-3.14" upper="3.14" />
 		<dynamics damping ="50" friction="1"/>
 	</joint>
 
 	<link name="tilt_link">
 		<visual>
 			<geometry>
-				<cylinder length="0.10" radius="0.05" />
+				<cylinder length="${tilt_link_len}" radius="${tilt_link_radius}" />
 			</geometry>
 			<origin xpy="0 0 0" rpy="1.57 0 0" />
 			<color rgba="0 0 1 1" />
 		</visual>
 		<collision>
 			<geometry>
-				<cylinder length="0.10" radius="0.05" />
+				<cylinder length="${tilt_link_len}" radius="${tilt_link_radius}" />
 			</geometry>
 			<origin xpy="0 0 0" rpy="0 0 0" />
 		</collision>
 		<inertial>
       		<origin xyz="0 0 0" /> 
       		<mass value="0.01" />
-      		<inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.001" />
+      		<inertia  ixx="0.01" ixy="0.0"  ixz="0.0"  iyy="0.01"  iyz="0.0"  izz="0.01" />
    		</inertial>
 	</link>
 
@@ -113,10 +133,21 @@
 		<inertial>
       		<origin xyz="0 0 0" /> 
       		<mass value="0.01" />
-      		<inertia  ixx="0.001" ixy="0.0"  ixz="0.0"  iyy="0.001"  iyz="0.0"  izz="0.001" />
+      		<inertia  ixx="0.01" ixy="0.0"  ixz="0.0"  iyy="0.01"  iyz="0.0"  izz="0.01" />
    		</inertial>
 	</link>
+  <xacro:transmission_block joint_name="pan"/>
+  <xacro:transmission_block joint_name="tilt"/>
 
+
+
+ <!-- ros_control plugin -->
+	<gazebo>
+		<plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+		  <robotNamespace>/ptz_camera</robotNamespace>
+		</plugin>
+	</gazebo>
+	
 	<gazebo reference="camera_link">
     	<sensor name="_camera_raw" type="camera">
 			<update_rate>25</update_rate>
@@ -156,39 +187,5 @@
 		</sensor>
   	</gazebo>
 
-
-	<!-- Transmissions -->
-	<transmission name="pan_trans" >
-		<robotNamespace>ptz_camera</robotNamespace>
-		<type>transmission_interface/SimpleTransmission</type>
-		<joint name="pan_joint">
-			<hardwareInterface>PositionJointInterface</hardwareInterface>
-		</joint>
-		<actuator name="motor_pan">
-			<hardwareInterface>PositionJointInterface</hardwareInterface>
-			<mechanicalReduction>1</mechanicalReduction>
-		</actuator>	
-	</transmission>
-
-	<transmission name="tilt_trans" >
-		<robotNamespace>ptz_camera</robotNamespace>
-		<type>transmission_interface/SimpleTransmission</type>
-		<joint name="tilt_joint">
-					<hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
-
-		</joint>
-		<actuator name="motor_tilt">
-					<hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
-
-			<mechanicalReduction>1</mechanicalReduction>
-		</actuator>	
-	</transmission>
-<!--
-	<gazebo>
-		<plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
-			<robotNamespace>ptz_camera</robotNamespace>
-			<robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
-		</plugin>
-	</gazebo>
--->
 </robot>
+

@@ -2,11 +2,11 @@ ptz_camera:
    joint_state_controller:
      type: joint_state_controller/JointStateController
      publish_rate: 50
-   joint1_position_controller:
+   tilt_position_controller:
      type: position_controllers/JointPositionController
-     joint: tilt_joint
+     joint: tilt
      pid: {p: 100.0, i: 0.01, d: 10.0 }
-   joint2_position_controller:
+   pan_position_controller:
      type: position_controllers/JointPositionController
-     joint: pan_joint
+     joint: pan
      pid: {p: 100.0, i: 0.01, d: 10.0 }
