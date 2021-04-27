@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
+
 	<env name="GAZEBO_MODEL_PATH" value="$(find leonardo_2)/models:$(optenv GAZEBO_MODEL_PATH)" />
 
   	<!-- Vehicle Initial position!-->
@@ -9,13 +10,13 @@
     <arg name="z" default="0.15"/>
     <arg name="R" default="0"/>
     <arg name="P" default="0"/>
-    <arg name="Y" default="3.14"/>
+    <arg name="Y" default="0"/>
 
     <!-- vehicle model -->
     <arg name="est" default="ekf2"/>
     <arg name="vehicle" default="iris"/>
     <arg name="sdf" default="$(find mavlink_sitl_gazebo)/models/$(arg vehicle)/$(arg vehicle).sdf"/>
-   
+       
     <!-- MAVROS configs -->
     <arg name="fcu_url" default="udp://:14540@localhost:14557"/>
     <arg name="respawn_mavros" default="false"/>
@@ -49,34 +50,30 @@
     </include>
 
     <!-- gazebo model --> 
+    <!-- spawn iris -->
+    <param name="robot_description" command="$(find xacro)/xacro.py $(find mavlink_sitl_gazebo)/models/rotors_description/urdf/$(arg vehicle)/$(arg vehicle).xacro" />
+    <node name="iris_spawn" pkg="gazebo_ros" type="spawn_model" output="screen" args="-sdf -file $(arg sdf) -model $(arg vehicle) -x $(arg x) -y $(arg y) -z $(arg z) -R $(arg R) -P $(arg P) -Y $(arg Y)"/>
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen" />
 
-	<param name="robot_description" textfile="$(find leonardo_2)/models/iris_urdf/iris.urdf" />
-	
-    <node name="$(anon vehicle_spawn)" pkg="gazebo_ros" type="spawn_model" output="screen" args="-sdf -file $(arg sdf) -model $(arg vehicle) -x $(arg x) -y $(arg y) -z $(arg z) -R $(arg R) -P $(arg P) -Y $(arg Y)"/>
-
+    <!-- spawn ptz camera  
 	<param name="robot_description" command="$(find xacro)/xacro $(find leonardo_2)/models/ptz_camera/ptz_camera.xacro" />
-
 	<node name="camera_spawner" pkg="gazebo_ros" type="spawn_model" output="screen" respawn="false" args="-param robot_description -urdf -model ptz_camera" />
 	<rosparam file="$(find leonardo_2)/models/ptz_camera/config/ptz_camera_control.yaml" command="load" />
 	<node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" ns="/ptz_camera" args="joint_state_controller tilt_position_controller pan_position_controller"/>	
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" respawn="false" output="screen" />
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen" >
+		<remap from="/joint_states" to="/ptz_camera/joint_states" />
+	</node>
+   -->
 
     <!-- MAVROS -->
     <include file="$(find mavros)/launch/px4.launch">
- 
         <!-- GCS link is provided by SITL -->
         <arg name="gcs_url" value=""/>
         <arg name="fcu_url" value="$(arg fcu_url)"/>
         <arg name="respawn_mavros" value="$(arg respawn_mavros)"/>
     </include>
 	
-	<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" respawn="false" output="screen" />
-	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen" >
-		<remap from="/joint_states" to="/ptz_camera/joint_states" />
-	</node>
-		<!--
-		<include file="$(find optitrack_listener)/launch/gazebo_simu_listener.launch" />
-		-->
-
 </launch>
 
 

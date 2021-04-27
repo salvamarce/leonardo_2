@@ -1,0 +1,22 @@
+<launch>
+   <group ns="axis" >
+      <param name="hostname" value="169.254.97.43" />
+      <param name="width" value="800" />
+      <param name="height" value="600" />
+      <param name="flip" value="true" />
+      <param name="speed_control" value="true" />
+
+      <node pkg="axis_camera" type="axis_ptz.py" name="axis_ptz" />
+
+      <node pkg="axis_camera" type="teleop_speed_control.py" name="teleop" />
+      
+      <node pkg="axis_camera" type="axis.py" name="axis" >
+      </node>
+      
+      <node name="republish" type="republish" pkg="image_transport" output="screen"
+            args="compressed in:=/axis/image_raw/ raw out:=/axis/image_raw_out" />
+   </group>
+
+      
+
+</launch>

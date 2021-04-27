@@ -1,0 +1,487 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+	<model name="arena_volo">
+		<static>true</static>
+		<!-- Obstacles map -->
+		<link name="ground">
+			<pose>0 0 0.05 0 0 0</pose>
+			<collision name="ground_collision">
+				<geometry>
+			  		<mesh>
+						<uri>model://arena_volo/meshes/arena_volo.stl</uri>
+			  		</mesh>
+				</geometry>
+			</collision>
+			<visual name="ground_visual">
+				<geometry>
+			  		<mesh>
+						<uri>model://arena_volo/meshes/arena_volo.stl</uri>
+			  		</mesh>
+				</geometry>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+				
+		<!-- Takeoff/landing pitches -->
+		<!-- Area 1 
+		<joint name="ground_p1_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p1</child>
+		</joint>
+
+		<link name="p1">
+    		<pose>0.5 3.5 0.061 0 0 0</pose>
+			<visual name="p1_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p1_aruco1_joint" type="fixed">
+			<parent>p1</parent>
+			<child>aruco1</child>
+		</joint>
+
+		<link name="aruco1">
+    		<pose>0.5 3.5 0.062 0 0 0</pose>
+			<visual name="aruco1_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area1</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+		-->
+		<!-- Area 2 
+		<joint name="ground_p2_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p2</child>
+		</joint>
+
+		<link name="p2">
+    		<pose>18.5 2.5 0.063 0 0 0</pose>
+			<visual name="p2_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p2_aruco2_joint" type="fixed">
+			<parent>p2</parent>
+			<child>aruco2</child>
+		</joint>
+
+		<link name="aruco2">
+    		<pose>18.5 2.5 0.064 0 0 0</pose>
+			<visual name="aruco2_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area2</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+		-->
+		<!-- Area 3 
+		<joint name="ground_p3_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p3</child>
+		</joint>
+
+		<link name="p3">
+    		<pose>7.5 0.5 0.061 0 0 0</pose>
+			<visual name="p3_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p3_aruco3_joint" type="fixed">
+			<parent>p3</parent>
+			<child>aruco3</child>
+		</joint>
+
+		<link name="aruco3">
+    		<pose>7.5 0.5 0.062 0 0 0</pose>
+			<visual name="aruco3_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area3</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
+		-->
+		<!-- Area 4 
+		<joint name="ground_p4_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p4</child>
+		</joint>
+
+		<link name="p4">
+    		<pose>1.5 7.5 0.061 0 0 0</pose>
+			<visual name="p4_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p4_aruco4_joint" type="fixed">
+			<parent>p4</parent>
+			<child>aruco4</child>
+		</joint>
+
+		<link name="aruco4">
+    		<pose>1.5 7.5 0.062 0 0 0</pose>
+			<visual name="aruco4_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area4</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
+		-->
+		<!-- Area 5 
+		<joint name="ground_p5_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p5</child>
+		</joint>
+
+		<link name="p5">
+    		<pose>4.5 5.5 0.061 0 0 0</pose>
+			<visual name="p5_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p5_aruco5_joint" type="fixed">
+			<parent>p5</parent>
+			<child>aruco5</child>
+		</joint>
+
+		<link name="aruco5">
+    		<pose>4.5 5.5 0.062 0 0 0</pose>
+			<visual name="aruco5_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area5</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
+		-->
+		<!-- Area 6 
+		<joint name="ground_p6_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p6</child>
+		</joint>
+
+		<link name="p6">
+    		<pose>17.5 7.5 0.063 0 0 0</pose>
+			<visual name="p6_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p6_aruco6_joint" type="fixed">
+			<parent>p6</parent>
+			<child>aruco6</child>
+		</joint>
+
+		<link name="aruco6">
+    		<pose>17.5 7.5 0.064 0 0 0</pose>
+			<visual name="aruco6_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area6</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
+		-->
+		<!-- Area 7 
+		<joint name="ground_p7_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p7</child>
+		</joint>
+
+		<link name="p7">
+    		<pose>14.695 0.805 0.763 0 0 0</pose>
+			<visual name="p7_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p7_aruco7_joint" type="fixed">
+			<parent>p7</parent>
+			<child>aruco7</child>
+		</joint>
+
+		<link name="aruco7">
+    		<pose>14.695 0.805 0.765 0 0 0</pose>
+			<visual name="aruco7_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area7</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
+		-->
+		<!-- Area 8 
+		<joint name="ground_p8_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p8</child>
+		</joint>
+
+		<link name="p8">
+    		<pose>9.4 7.9 0.062 0 0 0</pose>
+			<visual name="p8_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p8_aruco8_joint" type="fixed">
+			<parent>p8</parent>
+			<child>aruco8</child>
+		</joint>
+
+		<link name="aruco8">
+    		<pose>9.4 7.9 0.064 0 0 0</pose>
+			<visual name="aruco8_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area8</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
+		-->
+		<!-- Area 9 
+		<joint name="ground_p9_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p9</child>
+		</joint>
+
+		<link name="p9">
+    		<pose>12.5 9.5 0.062 0 0 0</pose>
+			<inertial>
+			 	<inertia>
+					<ixx>0.1</ixx>
+					<ixy>0</ixy>
+					<ixz>0</ixz>
+					<iyy>0.1</iyy>
+					<iyz>0</iyz>
+					<izz>0.1</izz>
+				</inertia>
+			</inertial>
+			<visual name="p9_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p9_aruco9_joint" type="fixed">
+			<parent>p9</parent>
+			<child>aruco9</child>
+		</joint>
+
+		<link name="aruco9">
+    		<pose>12.5 9.5 0.064 0 0 0</pose>
+			<visual name="aruco9_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area9</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
+		-->
+		<!-- Area 10 
+		<joint name="ground_p10_joint" type="fixed">
+			<parent>ground</parent>
+			<child>p10</child>
+		</joint>
+
+		<link name="p10">
+    		<pose>3.55 1.445 2.062 0 0 0</pose>
+			<visual name="p10_visual">
+				<geometry>
+					<box> <size> 1.0 1.0 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/aruco_background</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link>
+
+		<joint name="p10_aruco10_joint" type="fixed">
+			<parent>p10</parent>
+			<child>aruco10</child>
+		</joint>
+
+		<link name="aruco10">
+    		<pose>3.55 1.445 2.064 0 0 0</pose>
+			<visual name="aruco10_visual">
+				<geometry>
+					<box> <size> 0.5 0.5 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/area10</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
+		-->	
+  </model>
+</sdf>

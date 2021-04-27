@@ -1,0 +1,14 @@
+material campo_gara/aruco_background
+{
+  technique
+  {
+    pass
+    {
+      texture_unit
+      {
+        texture background.png
+        scale 1 1
+      }
+    }
+  }
+}

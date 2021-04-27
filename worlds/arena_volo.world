@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+  <world name="arena_volo">
+	<scene>
+		<ambient>0.0 0.0 0.0 1.0</ambient>
+		<shadows>0</shadows>
+	</scene>
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <include>
+      <uri>model://arena_volo</uri>
+    </include>
+		
+  </world>
+</sdf>
+
