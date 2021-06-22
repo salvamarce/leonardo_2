@@ -1,5 +1,5 @@
 # --- Trajectory planning thresholds ---
-max_cruise_vel: 1.0
+max_cruise_vel: 0.4
 trajectory_rate: 50.0
 # thresholds for "arrived state"
 pos_threshold: 0.05 #meters
@@ -27,52 +27,62 @@ min_height: 1.0 #min height to land without visual servoing
 
 # --- Markers positions ---
 #Posizione riferita al centro del marker
-marker_1_id: 1
-marker_1_x: 0.5
-marker_1_y: 3.5
+marker_1_id: 5
+marker_1_x: 2.5
+marker_1_y: -4.5
 marker_1_z: 0.0
 
-marker_2_id: 2
-marker_2_x: 18.5
-marker_2_y: 2.5
-marker_2_z: 0.0
+marker_1_id: 3
+marker_1_x: 4.0
+marker_1_y: -2.5
+marker_1_z: 0.0
 
-marker_3_id: 3
-marker_3_x: 7.5
-marker_3_y: 0.5
-marker_3_z: 0.0
-
-marker_4_id: 4
-marker_4_x: 1.5
-marker_4_y: 7.5
-marker_4_z: 0.0
-
-marker_5_id: 5
-marker_5_x: 4.5
-marker_5_y: 5.5
-marker_5_z: 0.0
-
-marker_6_id: 6
-marker_6_x: 17.5
-marker_6_y: 7.5
-marker_6_z: 0.0
-
-marker_7_id: 7
-marker_7_x: 15.0
-marker_7_y: 1.0
-marker_7_z: 0.7
-
-marker_8_id: 8
-marker_8_x: 9.0
-marker_8_y: 8.0
-marker_8_z: 0.0
-
-marker_9_id: 9
-marker_9_x: 12.5
-marker_9_y: 9.5
-marker_9_z: 0.0
-
-marker_10_id: 10
-marker_10_x: 4.5
-marker_10_y: 1.5
-marker_10_z: 2.0
+#marker_1_id: 1
+#marker_1_x: 0.5
+#marker_1_y: 3.5
+#marker_1_z: 0.0
+#
+#marker_2_id: 2
+#marker_2_x: 18.5
+#marker_2_y: 2.5
+#marker_2_z: 0.0
+#
+#marker_3_id: 3
+#marker_3_x: 7.5
+#marker_3_y: 0.5
+#marker_3_z: 0.0
+#
+#marker_4_id: 4
+#marker_4_x: 1.5
+#marker_4_y: 7.5
+#marker_4_z: 0.0
+#
+#marker_5_id: 5
+#marker_5_x: 4.5
+#marker_5_y: 5.5
+#marker_5_z: 0.0
+#
+#marker_6_id: 6
+#marker_6_x: 17.5
+#marker_6_y: 7.5
+#marker_6_z: 0.0
+#
+#marker_7_id: 7
+#marker_7_x: 15.0
+#marker_7_y: 1.0
+#marker_7_z: 0.7
+#
+#marker_8_id: 8
+#marker_8_x: 9.0
+#marker_8_y: 8.0
+#marker_8_z: 0.0
+#
+#marker_9_id: 9
+#marker_9_x: 12.5
+#marker_9_y: 9.5
+#marker_9_z: 0.0
+#
+#marker_10_id: 10
+#marker_10_x: 4.5
+#marker_10_y: 1.5
+#marker_10_z: 2.0

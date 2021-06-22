@@ -1,29 +1,27 @@
 <?xml version="1.0"?>
 <launch>
 
-
 	<env name="GAZEBO_MODEL_PATH" value="$(find leonardo_2)/models:$(optenv GAZEBO_MODEL_PATH)" />
-
-  	<!-- Vehicle Initial position!-->
     <arg name="x" default="0.5"/>
     <arg name="y" default="3.5"/>
-    <arg name="z" default="0.15"/>
-    <arg name="R" default="0"/>
-    <arg name="P" default="0"/>
-    <arg name="Y" default="0"/>
-
-    <!-- vehicle model -->
+    <arg name="z" default="0.30"/>
+    <arg name="R" default="0.0"/>
+    <arg name="P" default="0.0"/>
+    <arg name="Y" default="0.0"/>
+    <!-- vehicle model and world -->
     <arg name="est" default="ekf2"/>
     <arg name="vehicle" default="iris"/>
+    <arg name="world" default="$(find leonardo_2)/worlds/campo_gara.world"/>
     <arg name="sdf" default="$(find mavlink_sitl_gazebo)/models/$(arg vehicle)/$(arg vehicle).sdf"/>
-       
-    <!-- MAVROS configs -->
-    <arg name="fcu_url" default="udp://:14540@localhost:14557"/>
-    <arg name="respawn_mavros" default="false"/>
-    <!-- PX4 configs -->
-    <env name="PX4_SIM_MODEL" value="$(arg vehicle)" />
+    <env name="PX4_SIM_MODEL" value="iris" />
     <env name="PX4_ESTIMATOR" value="$(arg est)" />
 
+    <!-- gazebo configs -->
+    <arg name="gui" default="true"/>
+    <arg name="debug" default="false"/>
+    <arg name="verbose" default="false"/>
+    <arg name="paused" default="false"/>
+    <arg name="respawn_gazebo" default="false"/>
     <!-- PX4 configs -->
     <arg name="interactive" default="true"/>
     <!-- PX4 SITL -->
@@ -32,14 +30,7 @@
     <node name="sitl" pkg="px4" type="px4" output="screen"
         args="$(find px4)/ROMFS/px4fmu_common -s etc/init.d-posix/rcS $(arg px4_command_arg1)" required="true"/>
 
-	
-	<!-- Gazebo sim -->
-    <arg name="gui" default="true"/>
-    <arg name="debug" default="false"/>
-    <arg name="verbose" default="true"/>
-    <arg name="paused" default="false"/>
-    <arg name="respawn_gazebo" default="false"/>
-	<arg name="world" default="$(find leonardo_2)/worlds/campo_gara.world"/>
+    <!-- Gazebo sim -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
         <arg name="gui" value="$(arg gui)"/>
         <arg name="world_name" value="$(arg world)"/>
@@ -48,11 +39,8 @@
         <arg name="paused" value="$(arg paused)"/>
         <arg name="respawn_gazebo" value="$(arg respawn_gazebo)"/>
     </include>
-
-    <!-- gazebo model --> 
-    <!-- spawn iris -->
-    <param name="robot_description" command="$(find xacro)/xacro.py $(find mavlink_sitl_gazebo)/models/rotors_description/urdf/$(arg vehicle)/$(arg vehicle).xacro" />
-    <node name="iris_spawn" pkg="gazebo_ros" type="spawn_model" output="screen" args="-sdf -file $(arg sdf) -model $(arg vehicle) -x $(arg x) -y $(arg y) -z $(arg z) -R $(arg R) -P $(arg P) -Y $(arg Y)"/>
+    <!-- gazebo model -->
+    <node name="$(anon vehicle_spawn)" pkg="gazebo_ros" type="spawn_model" output="screen" args="-sdf -file $(arg sdf) -model $(arg vehicle) -x $(arg x) -y $(arg y) -z $(arg z) -R $(arg R) -P $(arg P) -Y $(arg Y)"/>
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen" />
 
     <!-- spawn ptz camera  
@@ -67,6 +55,9 @@
    -->
 
     <!-- MAVROS -->
+    <arg name="fcu_url" default="udp://:14540@localhost:14557"/>
+    <arg name="respawn_mavros" default="false"/>
+
     <include file="$(find mavros)/launch/px4.launch">
         <!-- GCS link is provided by SITL -->
         <arg name="gcs_url" value=""/>
@@ -75,5 +66,4 @@
     </include>
 	
 </launch>
-
 
