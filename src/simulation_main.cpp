@@ -6,13 +6,14 @@
 
 using namespace std;
 
-void routine();
-
 int main(int argc, char** argv) {
-   ros::init(argc, argv, "main_leonardo");
-   ArucoManager arm;
+   ros::init(argc, argv, "simulation_main_leonardo");
+   
+	ArucoManager aruco;
 
-   arm.run();
+	aruco.run();
+
+	ros::spin();
    
    return 0;
 }

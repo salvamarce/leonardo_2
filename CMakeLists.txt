@@ -60,8 +60,12 @@ target_link_libraries( navigation ${catkin_LIBRARIES})
 add_executable( aruco_manager src/aruco_manager.cpp src/test_aruco.cpp src/navigation.cpp src/planner_spline.cpp)
 target_link_libraries( aruco_manager ${catkin_LIBRARIES})
 
-add_executable( main_leonardo src/main.cpp src/navigation.cpp src/aruco_manager.cpp src/planner_spline.cpp)
-target_link_libraries( main_leonardo ${catkin_LIBRARIES})
+add_executable( simulation_main src/simulation_main.cpp src/navigation.cpp src/aruco_manager.cpp src/planner_spline.cpp)
+target_link_libraries( simulation_main ${catkin_LIBRARIES})
 
 add_executable( t265_matrix src/t265_matrix.cpp )
 target_link_libraries( t265_matrix ${catkin_LIBRARIES})
+
+catkin_install_python(PROGRAMS scripts/display_map.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)

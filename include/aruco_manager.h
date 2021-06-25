@@ -10,15 +10,14 @@ class ArucoManager{
 	public:
 		ArucoManager();
 
-		bool getActualMarkerPos(const aruco_msgs::Marker &marker, Eigen::Vector3d &pos);
-		bool getActualMarker(aruco_msgs::Marker &marker);
+		bool getActualMarker(aruco_msgs::Marker& marker);
 		bool landOnMarker(const int id);
-		void correctDronePosition();
+		bool correctDronePosition();
 		bool isKnown(int ID);
 		bool isSeen(int ID);
 		void TestRoutine();
-		bool getKnownMarkerPos( const int id, Eigen::Vector3d &pos );
-		bool moveToMarker(const int id);
+		bool getKnownMarkerPos( const int id, Eigen::Vector3d& pos);
+		bool moveToMarker(const int id, const double height);
 		
 		bool setDesiredHeight(const double h) { _des_height = h; }
 		
@@ -26,6 +25,7 @@ class ArucoManager{
 
 	private:
 		void load_list();
+		void load_wps();
 		void markers_cb(aruco_msgs::MarkerArray markers);
 		void markers_list_cb(std_msgs::UInt32MultiArray list);
 		void visualServoing();
@@ -42,6 +42,8 @@ class ArucoManager{
 		string _markers_topic_name;
 		string _markers_list_topic_name;
 		bool _no_markers;
+
+		Eigen::Matrix<double, 3, Dynamic> _wps_1to10;
 
 		// --- Visual Servoing ---
 		Navigation *nvg = NULL;

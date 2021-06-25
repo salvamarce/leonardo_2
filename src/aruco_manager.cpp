@@ -34,6 +34,7 @@ ArucoManager::ArucoManager(){
 	_nh.getParam("min_height", _min_height);
 	_nh.getParam("Kp_vs", _Kp_vs);
 	_nh.getParam("Kd_vs", _Kd_vs);
+	load_wps();
 	load_list(); 
 
 	_markers_sub = _nh.subscribe(_markers_topic_name.c_str(), 1, &ArucoManager::markers_cb, this);
@@ -45,6 +46,30 @@ ArucoManager::ArucoManager(){
 	_land_on_marker = false;
 	_no_markers = true;
 	_des_height =  0.0;
+}
+
+void ArucoManager::load_wps(){
+
+	std::vector<double> wps;
+	wps.resize(30*3);
+	_wps_1to10.setZero(3,wps.size()/3);
+
+	if (_nh.hasParam("wps_1to10")){
+
+		_nh.getParam("wps_1to10", wps);
+
+		int cols = _wps_1to10.cols();
+		
+		for (int i = 0; i < (30*3 - 2); i+=3)
+		{
+			_wps_1to10(0, i/3) = wps[i];
+			_wps_1to10(1, i/3) = wps[i+1];
+			_wps_1to10(2, i/3) = wps[i+2];
+			
+		}
+		
+	 }
+
 }
 
 void ArucoManager::load_list(){
@@ -80,13 +105,17 @@ void ArucoManager::markers_cb(aruco_msgs::MarkerArray markers){
 	bool seen = false;
 
 	if( markers.markers.size() > 0 ){
-		for(int i=0; i<markers.markers.size(); i++){
+		for(int i=0; i < markers.markers.size(); i++){
 			known = false;
 			seen = false;
 
 			if(isKnown(markers.markers[i].id)){
 				known = true;
 				_actual_marker = markers.markers[i];
+				
+				//if( nvg->getTakeoff() )
+				//	correctDronePosition();
+
 			}
 
 			if(!known && markers.markers[i].id != 0){} //To do: fai qualcosa con l'intruso
@@ -130,19 +159,7 @@ bool ArucoManager::isSeen(int ID){
 	return seen;
 }
 
-bool ArucoManager::getActualMarkerPos(const aruco_msgs::Marker &marker, Eigen::Vector3d &pos){
-	if( !_no_markers ){
-		//Marker is in ENU
-		//
-		//marker = _actual_marker;
-		return true;
-	}
-	else
-		return false;
-			
-}
-
-bool ArucoManager::getActualMarker(aruco_msgs::Marker &marker){
+bool ArucoManager::getActualMarker(aruco_msgs::Marker& marker){
 	if( !_no_markers ){
 		marker = _actual_marker;
 		return true;
@@ -151,7 +168,7 @@ bool ArucoManager::getActualMarker(aruco_msgs::Marker &marker){
 		return false;
 }
 
-bool ArucoManager::getKnownMarkerPos( const int id, Eigen::Vector3d &pos){
+bool ArucoManager::getKnownMarkerPos( const int id, Eigen::Vector3d& pos){
 
 	for(int i=0; i<_knownList.size(); i++){
 		if(id == _knownList[i].id){
@@ -166,25 +183,64 @@ bool ArucoManager::getKnownMarkerPos( const int id, Eigen::Vector3d &pos){
 	return false;
 }
 
-void ArucoManager::correctDronePosition(){
-	aruco_msgs::Marker mark;
+bool ArucoManager::correctDronePosition(){
+	aruco_msgs::Marker marker;
+	Eigen::Vector3d dist;
+	Eigen::Vector3d marker_pos;
+	Eigen::Vector4d marker_dir;
+	Eigen::Matrix3d R_marker;
+	Eigen::Matrix3d R_marker_D;
+	Eigen::Matrix4d H_marker_A;
+	Eigen::Matrix4d H_marker_D;
+	Eigen::Matrix4d H_D_A;
+	
 
-	if( getActualMarker(mark) ){
+	R_marker << 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0;
+	
+	if( getActualMarker(marker) ){
 		
-		if( isKnown(mark.id) ){
+		if( isKnown(marker.id) ){
+			
+			getKnownMarkerPos(marker.id, marker_pos);
+			dist << marker.pose.pose.position.x, marker.pose.pose.position.y, marker.pose.pose.position.z;
+			marker_dir << marker.pose.pose.orientation.w, marker.pose.pose.orientation.x, marker.pose.pose.orientation.y, marker.pose.pose.orientation.z;			
+			
+			H_marker_A.block<3,3>(0,0) = R_marker;
+			H_marker_A.block<3,1>(0,3) = marker_pos;
+			H_marker_A(3,0) = 0.0;
+			H_marker_A(3,1) = 0.0;
+			H_marker_A(3,2) = 0.0;
+			H_marker_A(3,3) = 1.0; 
 
-			for(int i=0; i<_knownList.size(); i++){
-				if(mark.id == _knownList[i].id){
-					Eigen::Vector3d pos;
-					pos << _knownList[i].pose.pose.position.x + mark.pose.pose.position.x, _knownList[i].pose.pose.position.y + mark.pose.pose.position.y, 0.0;
-					nvg->setWorldOffset( pos );
-				}
-			}
+			R_marker_D = utilities::QuatToMat( marker_dir );
+
+			H_marker_D.block<3,3>(0,0) = R_marker_D;
+			H_marker_D.block<3,1>(0,3) = dist;
+			H_marker_D(3,0) = 0.0;
+			H_marker_D(3,1) = 0.0;
+			H_marker_D(3,2) = 0.0;
+			H_marker_D(3,3) = 1.0;
+
+			H_D_A = H_marker_A * H_marker_D.inverse();
+			H_D_A(2,3) = 0.0;
+
+			cout << "marker_pos: " << marker_pos.transpose() << endl;
+			cout << "dist: " << dist.transpose() << endl;
+			cout << "H_D_A: \n" << H_D_A << endl;
+
+			nvg->setWorldOffset( H_D_A );
+
+			return true;
+			
 		}
+		else
+			return false;
 	}
+	else
+		return false;
 }
 
-bool ArucoManager::moveToMarker(const int id){
+bool ArucoManager::moveToMarker(const int id, const double height){
 	aruco_msgs::Marker marker;
 	Eigen::Vector3d target;
 
@@ -196,9 +252,10 @@ bool ArucoManager::moveToMarker(const int id){
 		}
 		else if( getKnownMarkerPos(id, target)){
 			cout << "Vado al marker richiesto \n";
-			target(2) = _des_height;
-			nvg->move_to(target);
-			while(!nvg->arrived()) usleep(1*1e04);
+			target(2) = height;
+			cout << "marker target: " << target.transpose() << endl;
+			nvg->moveTo(target);
+
 			return true;
 		}
 		else
@@ -213,52 +270,65 @@ void ArucoManager::visualServoing(){
 	Eigen::Vector3d old_dist;
 	Eigen::Vector3d target;
 
-	Eigen::Vector3d world_offset;
-	Eigen::Vector3d world_pos;
+	Eigen::Matrix4d world_offset;
+	Eigen::Vector4d world_pos;
 
 	Eigen::Vector3d des_vec;
 	double cos_theta;
 	double theta;
 	double vel;
+	double cos_yaw, sin_yaw, drone_yaw;
+	Eigen::Matrix3d Rdrone;
+	Eigen::Matrix3d Rmarker;
+
+	double yaw = 0.0;
 
 	ros::Rate r(_rate_servoing);
 	double dt = 1.0/_rate_servoing;
 
 	old_dist << 0.0, 0.0, 0.0;
 
+	Rmarker << 1, 0, 0, 0, cos(3.14), -1.0*sin(3.14), 0, sin(3.14), cos(3.14);
+
 	while(ros::ok()){
 		
 		if( _visual_servoing ){
 			
 			if( getActualMarker(marker) && marker.id == _servoing_marker_id ){
+				
 				// Tutto calcolato in terna odom
 				world_pos = nvg->getWorldPos();
 				world_offset = nvg->getWorldOffset();
 				
 				//Get distance from marker
-				dist_marker << marker.pose.pose.position.x, marker.pose.pose.position.y, -1.0*marker.pose.pose.position.z;
-				//marker_quat << marker.pose.pose.orientation.w, marker.pose.pose.orientation.x, marker.pose.pose.orientation.y, marker.pose.pose.orientation.z;
-				
-				if(_land_on_marker){
+				dist_marker << marker.pose.pose.position.x, marker.pose.pose.position.y, marker.pose.pose.position.z;
 
+				drone_yaw = nvg->getYaw();
+				cos_yaw = cos(drone_yaw);
+				sin_yaw = sin(drone_yaw);
+				Rdrone << cos_yaw, -1.0*sin_yaw, 0, sin_yaw, cos_yaw, 0, 0, 0, 1;
+
+				dist_marker = Rmarker * Rdrone * dist_marker;
+
+				if(_land_on_marker){
 					//Evaluate landing speed depending on the position of the drone inside the cone			
 					des_vec << 0.0, 0.0, dist_marker(2);
 					cos_theta = des_vec.dot(dist_marker) / (des_vec.norm() * dist_marker.norm());
 					theta = acos(cos_theta);
 					vel = (-_vel_max/_theta_max) * theta + _vel_max;
-
 				}
 
 				//TO DO: implementare un PD per il visual servoing
-				
+				cout << "dist marker: " << dist_marker.transpose() << endl;
+				cout << "theta: " << theta << endl;
 				if( !_land_on_marker ){
 					//Turn off trajectory planner
 					nvg->activateTrajectoryGenerator(false);
 
 					//X-Y visual servoing
-					target = (world_pos - world_offset)  + _Kp_vs * dist_marker + _Kd_vs * ( ( dist_marker - old_dist ) / dt ) ;
-					target(2) = _des_height - world_offset(2) ;
-					nvg->move_to(target);
+					target = ( world_offset.transpose() * world_pos ).block<3,1>(0,0)  + _Kp_vs * dist_marker + _Kd_vs * ( ( dist_marker - old_dist ) / dt ) ;
+					target(2) = _des_height - world_offset(2,3) ;
+					nvg->moveToWithYaw(target, yaw);
 					old_dist = dist_marker;
 
 				}
@@ -268,12 +338,12 @@ void ArucoManager::visualServoing(){
 					nvg->activateTrajectoryGenerator(false);	
 
 					//X-Y visual servoing and descent
-					target = (world_pos - world_offset)  + _Kp_vs * dist_marker + _Kd_vs * ( ( dist_marker - old_dist ) / dt ) ;
-					target(2) = dist_marker(2) - vel * dt;
+					target = ( world_offset.transpose() * world_pos ).block<3,1>(0,0)  + _Kp_vs * dist_marker + _Kd_vs * ( ( dist_marker - old_dist ) / dt ) ;
+					target(2) = dist_marker(2) + vel * dt;
 					cout << "dist: " << dist_marker(2) << endl;
 					cout << "vel: " << vel << endl;
-					cout << "dz: " << -vel*dt << endl;
-					nvg->move_to(target);
+					cout << "dz: " << vel*dt << endl;
+					nvg->moveToWithYaw(target, yaw);
 					old_dist = dist_marker;
 
 				}
@@ -281,7 +351,7 @@ void ArucoManager::visualServoing(){
 
 					_visual_servoing = false;
 					nvg->activateTrajectoryGenerator(true);
-					moveToMarker(_servoing_marker_id);
+					moveToMarker(_servoing_marker_id, 2.0);
 					landOnMarker(_servoing_marker_id);
 
 				}
@@ -290,7 +360,7 @@ void ArucoManager::visualServoing(){
 					//Stop visual servoing and just land
 					_visual_servoing = false;
 					nvg->activateTrajectoryGenerator(true);
-					double height_land = world_pos(2) - world_offset(2) - dist_marker(2);
+					double height_land = world_pos(2) - world_offset(2,3) - dist_marker(2);
 					nvg->land( height_land , 0.3 );
 				}
 
@@ -299,7 +369,7 @@ void ArucoManager::visualServoing(){
 
 				nvg->activateTrajectoryGenerator(true);
 				_visual_servoing = false;
-				moveToMarker(_servoing_marker_id);
+				moveToMarker(_servoing_marker_id, 2.0);
 				landOnMarker(_servoing_marker_id);
 
 			}
@@ -308,7 +378,7 @@ void ArucoManager::visualServoing(){
 				//Stop visual servoing and just land
 				_visual_servoing = false;
 				nvg->activateTrajectoryGenerator(true);
-				double height_land = world_pos(2) - world_offset(2) - dist_marker(2);
+				double height_land = world_pos(2) - world_offset(2,3) - dist_marker(2);
 				nvg->land( height_land , 0.3 );
 			} 		
 		}
@@ -328,19 +398,19 @@ bool ArucoManager::landOnMarker(const int id){
 	if( nvg->getTakeoff() ){
 
 		if( getActualMarker(marker) && marker.id == id ){
-
+			cout << "sto già sul marker \n";
 			_servoing_marker_id = id;
-			_visual_servoing = true;
 			_land_on_marker = true;
+			_visual_servoing = true;
 			return true;
 
 		}
 		else if( getKnownMarkerPos(id, target) && nvg->getWorldPos()(2) > _min_height){
-
-			while(!moveToMarker(id)) sleep(0.01);
+			cout << "vado al marker \n";
+			while(!moveToMarker(id, 2.0)) sleep(0.01);
 			_servoing_marker_id = id;
-			_visual_servoing = true;
 			_land_on_marker = true;
+			_visual_servoing = true;
 			return true;
 
 		}
@@ -351,56 +421,82 @@ bool ArucoManager::landOnMarker(const int id){
 
 void ArucoManager::TestRoutine(){
 	aruco_msgs::Marker mark;
-	bool corrected = false;
+	Eigen::Vector3d pos;
 	bool landed = false;
+	bool seq_finished = false;
 	bool moved = false;
+	bool first_takeoff = false;
 
-	ros::Rate r(50);
+	ros::Rate r(10);
 
-	_des_height = 2.0;
+	_des_height = 3.5;
 
 	while( ros::ok() ){
-		if( !nvg->getTakeoff() ){
-			nvg->takeoff(_des_height);
-			sleep(0.5);
+
+		if( !first_takeoff ){
+			cout << "TAKEOFF \n";
+			nvg->takeoff(_des_height, 0.4);
+
+			if( correctDronePosition() )
+				first_takeoff = true;
+			else
+				nvg->land();
+
+			sleep(1.0);
 		}
 		else{
-			
-			if(!corrected){
-				/**
-				 * TO DO:
-				 * creare un modulo che continuamente corregge
-				 * la posizione del drone
-				 **/ 
-				correctDronePosition();
-				sleep(0.5);
-				corrected = true;
 
-			}
+			if(!seq_finished){
+				cout << "Sequenza \n";
+				//pos << 2.0, 2.0, 3.5;
+				//nvg->moveTo(pos);
 
-			for(int i = 1; i<= 10; i++){
-				while( !moveToMarker(i) )
-					sleep(0.01);				
+				//nvg->moveToWithYaw(pos, 1.57);
+				//sleep(1.0);
+				
+				moveToMarker(2, 3.5);
+				
+				sleep(2.0);
+
+				
+				//correctDronePosition();
+				
+				sleep(2.0);
+
+				moveToMarker(1, 3.5);
+				
+				sleep(2.0);
+				
+				seq_finished = true;
+				cout << "Sequenza terminata \n";
+				
 			}
 			
-			/*	
-			if(!landed){
-				if( landOnMarker(1) ){
-					landed = true;
-				}
+			if(seq_finished){
+				nvg->land();
 			}
 			
-			*/
 		}
 
 		r.sleep();
 	}
 }
+ /*
+void double_camera_manager::tf_broadcast_pose(geometry_msgs::PoseStamped p, std::string child_frame, std::string parent_frame){
 
+    tf::Transform transform;
+    transform.setOrigin(tf::Vector3(p.pose.position.x,p.pose.position.y,p.pose.position.z));
+    tf::Quaternion q(p.pose.orientation.x,p.pose.orientation.y,p.pose.orientation.z,p.pose.orientation.w);
+    transform.setRotation(q);
+    tf::StampedTransform stamp_transform(transform, ros::Time::now(), parent_frame, child_frame);
+    _broadcaster.sendTransform(stamp_transform);
+
+}
+*/
 void ArucoManager::run(){
-	boost::thread traj_gen_t( &Navigation::trajectoryGenerator, nvg);
+	boost::thread traj_gen_t( &Navigation::setPointPublisher, nvg);
 	sleep(1);
-	boost::thread visual_t( &ArucoManager::visualServoing, this);
+	//boost::thread visual_t( &ArucoManager::visualServoing, this);
 	boost::thread routine_t( &ArucoManager::TestRoutine, this);
 	ros::spin();
 }

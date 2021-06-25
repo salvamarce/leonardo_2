@@ -1,0 +1,9 @@
+<launch>
+   <rosparam file="$(find leonardo_2)/config/simulation_parameters.yaml"  />
+   <rosparam file="$(find leonardo_2)/config/path_1to10.yaml"  />
+   
+   <include file="$(find leonardo_2)/launch/aruco_d435.launch" />
+
+   <node pkg="leonardo_2" type="simulation_main" name="simulation_main" output="screen" />
+
+</launch>

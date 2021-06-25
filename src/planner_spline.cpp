@@ -368,9 +368,9 @@ void CARTESIAN_PLANNER::compute() {
 
   for(int i=0; i<xplanner._x.size(); i++) {
     //_x[i].header.stamp = ros::Time::now();
-    _x[i].header.frame_id = "iiwa_link_0";
-    _xd[i].header.frame_id = "iiwa_link_0";
-    _xdd[i].header.frame_id = "iiwa_link_0";
+    _x[i].header.frame_id = "drone";
+    _xd[i].header.frame_id = "drone";
+    _xdd[i].header.frame_id = "drone";
 
     _x[i].pose.position.x = xplanner._x[i];
     _x[i].pose.position.y = yplanner._x[i];
@@ -386,9 +386,9 @@ void CARTESIAN_PLANNER::compute() {
   }
 
   for( int i=xplanner._x.size(); i<_x.size() ; i++) { //Padding
-    _x[i].header.frame_id = "iiwa_link_0";
-    _xd[i].header.frame_id = "iiwa_link_0";
-    _xdd[i].header.frame_id = "iiwa_link_0";
+    _x[i].header.frame_id = "drone";
+    _xd[i].header.frame_id = "drone";
+    _xdd[i].header.frame_id = "drone";
 
     _x[i].pose.position.x = _poses.back().pose.position.x;
     _x[i].pose.position.y = _poses.back().pose.position.y;

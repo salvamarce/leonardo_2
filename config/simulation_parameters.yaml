@@ -1,10 +1,13 @@
 # --- Trajectory planning thresholds ---
-max_cruise_vel: 1.0
-trajectory_rate: 50.0
+max_cruise_vel: 1.5
+sp_rate: 50.0
+traj_rate: 5.0
+
 # thresholds for "arrived state"
-pos_threshold: 0.05 #meters
+pos_threshold: 0.1 #meters
 yaw_threshold: 0.2 #degree
-height_threshold: 0.05 #height to launch px4
+height_threshold: 0.10 #height to launch px4
+max_height: 3.5
 
 # --- Mavros ---
 setpoint_topic: /mavros/setpoint_raw/local
