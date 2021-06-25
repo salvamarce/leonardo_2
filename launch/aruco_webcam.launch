@@ -11,9 +11,12 @@
 
   </node>
 
-  <arg name="aruco_markerSize" default="0.1"/> <!-- in meter -->
-  <arg name="aruco_ref_frame" default=""/> <!-- leave empty and the pose will be published wrt param parent_name -->
-  <arg name="aruco_camera_frame" default="head_cam"/>
+  <node pkg="tf" type="static_transform_publisher" name="camera_base_link_tf"
+              args="0.08 0.0 -0.13 -1.57 3.14 0.0 base_link head_cam 10" />
+
+  <arg name="aruco_markerSize" default="0.50" /> <!-- in meter -->
+  <arg name="aruco_ref_frame" default="base_link" /> <!-- leave empty and the pose will be published wrt param parent_name -->
+  <arg name="aruco_camera_frame" default="head_cam" />
 
   <node pkg="aruco_ros" type="marker_publisher" name="aruco_marker_publisher">
           <remap from="/camera_info" to="/usb_cam/camera_info" />

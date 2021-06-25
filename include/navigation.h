@@ -64,7 +64,9 @@ class Navigation{
 		//Get functions
 		const bool getTakeoff() {return _take_off;}
 		const Eigen::Vector4d getWorldPos() { return _world_pos; }
+		const Eigen::Vector4d getWorldPosOdom() { return _world_pos_odom; }
 		const double getYaw() { return _mes_yaw; }
+		const double getYawOdom() { return _mes_yaw_odom; }
 		const Eigen::Matrix4d getWorldOffset() { return _world_offset; }
 
 		//Set functions
@@ -99,9 +101,11 @@ class Navigation{
 		
 		// --- Drone state ---
 		Vector4d _world_pos;
+		Vector4d _world_pos_odom;
 		Matrix4d _world_offset;
 		Vector4d _world_quat;
 		float _mes_yaw;
+		float _mes_yaw_odom;
       mavros_msgs::State _mstate;
       bool _take_off;
 		bool _act_traj_gen;

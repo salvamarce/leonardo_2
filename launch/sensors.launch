@@ -1,0 +1,6 @@
+<launch>
+
+   <include file="$(find t265_manager)/launch/double_camera.launch" />
+   <include file="$(find leonardo_2)/launch/aruco_webcam.launch" />
+
+</launch>

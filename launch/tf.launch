@@ -1,0 +1,6 @@
+<launch>
+
+   <node pkg="tf" type="static_transform_publisher" name="camera_base_link_tf"
+              args="0.08 0.0 -0.13 -1.57 3.14 0.0 base_link head_cam 10" />
+
+</launch>

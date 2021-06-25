@@ -25,7 +25,7 @@ void load_param( bool & p, bool def, string name ) {
 	cout << name << ": " << "\t" << p << endl;
 }
 
-ArucoManager::ArucoManager(){
+ArucoManager::ArucoManager( bool test_mode){
    _nh.getParam("markers_topic_name", _markers_topic_name);
 	_nh.getParam("markers_list_topic_name", _markers_list_topic_name);
 	_nh.getParam("rate_servoing", _rate_servoing);
@@ -34,7 +34,7 @@ ArucoManager::ArucoManager(){
 	_nh.getParam("min_height", _min_height);
 	_nh.getParam("Kp_vs", _Kp_vs);
 	_nh.getParam("Kd_vs", _Kd_vs);
-	load_wps();
+	//load_wps();
 	load_list(); 
 
 	_markers_sub = _nh.subscribe(_markers_topic_name.c_str(), 1, &ArucoManager::markers_cb, this);
@@ -46,6 +46,8 @@ ArucoManager::ArucoManager(){
 	_land_on_marker = false;
 	_no_markers = true;
 	_des_height =  0.0;
+
+	_test_mode = test_mode;
 }
 
 void ArucoManager::load_wps(){
@@ -222,10 +224,11 @@ bool ArucoManager::correctDronePosition(){
 			H_marker_D(3,3) = 1.0;
 
 			H_D_A = H_marker_A * H_marker_D.inverse();
-			H_D_A(2,3) = 0.0;
+			//H_D_A(2,3) = 0.0;
 
-			cout << "marker_pos: " << marker_pos.transpose() << endl;
-			cout << "dist: " << dist.transpose() << endl;
+			cout << "marker_pos: " << marker_pos.transpose() << " norm: " << marker_pos.norm() << endl;
+			cout << "dist: " << dist.transpose() << " norm: " << dist.norm() << endl;
+			cout << "odom_pos: " << nvg->getWorldPosOdom().transpose() << " norm: " << nvg->getWorldPosOdom().norm() << endl;
 			cout << "H_D_A: \n" << H_D_A << endl;
 
 			nvg->setWorldOffset( H_D_A );
@@ -419,7 +422,7 @@ bool ArucoManager::landOnMarker(const int id){
 	}
 }
 
-void ArucoManager::TestRoutine(){
+void ArucoManager::Routine(){
 	aruco_msgs::Marker mark;
 	Eigen::Vector3d pos;
 	bool landed = false;
@@ -459,7 +462,7 @@ void ArucoManager::TestRoutine(){
 				sleep(2.0);
 
 				
-				//correctDronePosition();
+				correctDronePosition();
 				
 				sleep(2.0);
 
@@ -481,6 +484,38 @@ void ArucoManager::TestRoutine(){
 		r.sleep();
 	}
 }
+
+void ArucoManager::TestRoutine(){
+
+	ros::Rate r(1);
+
+	bool sp = false;
+	Eigen::Vector4d pos;
+	string key;
+
+	pos << 1.0, 2.0, 2.0, 1.0;
+
+	while(ros::ok()){
+		
+		getline(cin, key);
+
+		if(key == "p"){
+			correctDronePosition();
+
+			cout << "world pos: " << nvg->getWorldPos().transpose() << endl;
+			cout << "odom_pos: " << (nvg->getWorldOffset().inverse() * nvg->getWorldPos()).transpose() << endl;
+			cout << "yaw: " << nvg->getYaw() << endl;
+			cout << "sp: " << (nvg->getWorldOffset().inverse() * pos).transpose() << endl;
+			cout << " \n ---- \n";
+		}
+
+
+		//r.sleep();
+	}
+
+}
+
+
  /*
 void double_camera_manager::tf_broadcast_pose(geometry_msgs::PoseStamped p, std::string child_frame, std::string parent_frame){
 
@@ -494,10 +529,20 @@ void double_camera_manager::tf_broadcast_pose(geometry_msgs::PoseStamped p, std:
 }
 */
 void ArucoManager::run(){
-	boost::thread traj_gen_t( &Navigation::setPointPublisher, nvg);
-	sleep(1);
-	//boost::thread visual_t( &ArucoManager::visualServoing, this);
-	boost::thread routine_t( &ArucoManager::TestRoutine, this);
+
+	cout << "test_mode: " << _test_mode << endl;
+
+	if( !_test_mode){
+
+		boost::thread traj_gen_t( &Navigation::setPointPublisher, nvg);
+		sleep(1);
+		//boost::thread visual_t( &ArucoManager::visualServoing, this);
+		boost::thread routine_t( &ArucoManager::Routine, this);
+		
+	}
+	else if( _test_mode ){
+		boost::thread test_routine_t( &ArucoManager::TestRoutine, this);
+	}
 	ros::spin();
 }
 

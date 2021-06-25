@@ -8,7 +8,7 @@ using namespace std;
 
 class ArucoManager{
 	public:
-		ArucoManager();
+		ArucoManager( bool test_mode = false );
 
 		bool getActualMarker(aruco_msgs::Marker& marker);
 		bool landOnMarker(const int id);
@@ -16,6 +16,7 @@ class ArucoManager{
 		bool isKnown(int ID);
 		bool isSeen(int ID);
 		void TestRoutine();
+		void Routine();
 		bool getKnownMarkerPos( const int id, Eigen::Vector3d& pos);
 		bool moveToMarker(const int id, const double height);
 		
@@ -29,6 +30,8 @@ class ArucoManager{
 		void markers_cb(aruco_msgs::MarkerArray markers);
 		void markers_list_cb(std_msgs::UInt32MultiArray list);
 		void visualServoing();
+
+		bool _test_mode;
 
 		std::vector<aruco_msgs::Marker> _knownList; //List of known markers
 		std::vector<aruco_msgs::Marker> _seenList;

@@ -75,13 +75,17 @@ void Navigation::mavros_state_cb( mavros_msgs::State mstate) {
 void Navigation::pose_cb ( geometry_msgs::PoseStamped msg ) {
 
    Eigen::Vector4d temp;
+   Eigen::Vector3d rpy;
 
-   _world_pos << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1.0;
+   _world_pos_odom << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1.0;
 
-   _world_pos = _world_offset * _world_pos;
+   _world_pos = _world_offset * _world_pos_odom;
 
-   Eigen::Vector3d rpy = utilities::R2XYZ ( utilities::QuatToMat ( Eigen::Vector4d( msg.pose.orientation.w,  msg.pose.orientation.x,  msg.pose.orientation.y,  msg.pose.orientation.z) ) );
+   rpy = utilities::R2XYZ ( _world_offset.block<3,3>(0,0) * utilities::QuatToMat ( Eigen::Vector4d( msg.pose.orientation.w,  msg.pose.orientation.x,  msg.pose.orientation.y,  msg.pose.orientation.z) ) );
    _mes_yaw = rpy(2);
+
+   rpy = utilities::R2XYZ ( utilities::QuatToMat ( Eigen::Vector4d( msg.pose.orientation.w,  msg.pose.orientation.x,  msg.pose.orientation.y,  msg.pose.orientation.z) ) );
+   _mes_yaw_odom = rpy(2); 
 
    Quaternionf q;
    q = AngleAxisf(0.0, Vector3f::UnitX())
@@ -268,14 +272,14 @@ void Navigation::setPointPublisher(){
 
       if( _mstate.mode != "OFFBOARD") {
          
-         des_pos  = (_world_offset.inverse() * _world_pos).block<3,1>(0,0);
-         des_yaw = _mes_yaw;
+         des_pos  = _world_pos_odom.block<3,1>(0,0);
+         des_yaw = _mes_yaw_odom;
       }
       else if( isnan( _pos_sp(0) ) || isnan( _pos_sp(1) ) || isnan( _pos_sp(2) ) || isnan( _yaw_sp ) ){
 
          cout << "pos_sp is NaN " << _pos_sp.transpose() << " yaw: " << _yaw_sp << endl;
-         des_pos  = (_world_offset.inverse() * _world_pos).block<3,1>(0,0);
-         des_yaw = _mes_yaw;
+         des_pos  = _world_pos_odom.block<3,1>(0,0);
+         des_yaw = _mes_yaw_odom;
 
       }
       else{
@@ -669,9 +673,18 @@ void Navigation::land( double altitude, double vel) {
    
 }
 
-void Navigation::setWorldOffset(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> new_world_pos){ 
+void Navigation::setWorldOffset(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> new_world_pos_arena){ 
    
    Eigen::Matrix4d temp;
+   Eigen::Matrix4d T_d_o;
+
+   T_d_o.block<3,3>(0,0) = utilities::rotz(_mes_yaw_odom);
+   T_d_o.block<4,1>(0,3) = _world_pos_odom;
+   T_d_o(3,0) = 0.0;
+   T_d_o(3,1) = 0.0;
+   T_d_o(3,2) = 0.0;
+
+   /*
    Eigen::Vector4d offset_pos;
    Eigen::Matrix3d offset_R;
    
@@ -685,6 +698,11 @@ void Navigation::setWorldOffset(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> ne
    temp(3,1) = 0.0;
    temp(3,2) = 0.0;
    temp(3,3) = 1.0;
+   
+   //temp = utilities::rotationMatrixError(new_world_pos, _world_offset);
+   */
+
+   temp = new_world_pos_arena * T_d_o.inverse();
 
    cout << "old_offset: \n" << _world_offset << endl;
    cout << "new_offset: \n" << temp << endl;
