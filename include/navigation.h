@@ -15,6 +15,9 @@
 #include <Eigen/StdVector>
 //---
 
+#include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
+
 #include "planner_spline.h"
 
 #include <mutex>          // std::mutex
@@ -32,8 +35,6 @@ using namespace std;
 class Navigation{
 	public:
 		Navigation ();
-
-		void run();
 
 		//Check if the setpoint is reached
       bool arrived( const Eigen::Vector3d pos_sp, const double yaw_sp );
@@ -55,9 +56,6 @@ class Navigation{
 		//Land at a desired altitude with desired velocity
 		void land( double altitude = 0.0, const double vel = 0.0 );
 
-		//A test routine
-		void select_action();
-
 		//Activate or disable trajectory generator
 		void activateTrajectoryGenerator( const bool act) { _act_traj_gen = act;}
 
@@ -67,15 +65,20 @@ class Navigation{
 		const Eigen::Vector4d getWorldPosOdom() { return _world_pos_odom; }
 		const double getYaw() { return _mes_yaw; }
 		const double getYawOdom() { return _mes_yaw_odom; }
-		const Eigen::Matrix4d getWorldOffset() { return _world_offset; }
+		const Eigen::Vector4d getWorldQuatOdom() { return _world_quat_odom; }
+		const Eigen::Vector4d getWorldQuat() { return _world_quat; }
+		const Eigen::Matrix4d getWorldTransform() { return _H_odom_arena; }
 
 		//Set functions
-		void setWorldOffset(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> offset);
-		//Set test mode to 'true' to start with state machine
-		void setTestMode( bool mode) { _test_mode = mode; }
+		void setWorldTransform(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> new_H_odom_Arena);
 
 		void setPointPublisher();
-	
+
+		void tf_broadcast_pose_arena();
+		void tf_broadcast_pose_odom();
+		void tf_broadcast_odom_arena();
+		void rviz_sp_publisher();
+		void tf_broadcast_poses();
 	private:
 		void pose_cb ( geometry_msgs::PoseStamped msg );
 		void mavros_state_cb( mavros_msgs::State mstate);
@@ -87,8 +90,8 @@ class Navigation{
 		ros::Publisher _setpoint_pub;
 		ros::Subscriber _pose_sub;
 		ros::Subscriber _mavros_state_sub;
+		tf::TransformBroadcaster _broadcaster;
       bool _first_local_pos;
-		bool _test_mode;
 
 		string _setpoint_topic;
 		string _mavros_state_topic;
@@ -102,8 +105,9 @@ class Navigation{
 		// --- Drone state ---
 		Vector4d _world_pos;
 		Vector4d _world_pos_odom;
-		Matrix4d _world_offset;
+		Matrix4d _H_odom_arena;
 		Vector4d _world_quat;
+		Vector4d _world_quat_odom;
 		float _mes_yaw;
 		float _mes_yaw_odom;
       mavros_msgs::State _mstate;
@@ -126,5 +130,6 @@ class Navigation{
 		double _yaw_threshold;
 		double _height_threshold;
 		double _max_height;
+		double _drone_height;
 
 };

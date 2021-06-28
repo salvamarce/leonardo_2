@@ -54,8 +54,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable( navigation src/test_navigation.cpp src/navigation.cpp src/planner_spline.cpp)
-target_link_libraries( navigation ${catkin_LIBRARIES})
 
 add_executable( aruco_manager src/aruco_manager.cpp src/test_aruco.cpp src/navigation.cpp src/planner_spline.cpp)
 target_link_libraries( aruco_manager ${catkin_LIBRARIES})

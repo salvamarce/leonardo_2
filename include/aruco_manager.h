@@ -12,7 +12,7 @@ class ArucoManager{
 
 		bool getActualMarker(aruco_msgs::Marker& marker);
 		bool landOnMarker(const int id);
-		bool correctDronePosition();
+		bool correctWorldTransform(bool hard = false );
 		bool isKnown(int ID);
 		bool isSeen(int ID);
 		void TestRoutine();
@@ -30,6 +30,7 @@ class ArucoManager{
 		void markers_cb(aruco_msgs::MarkerArray markers);
 		void markers_list_cb(std_msgs::UInt32MultiArray list);
 		void visualServoing();
+		void worldTransformFilter();
 
 		bool _test_mode;
 
@@ -47,6 +48,11 @@ class ArucoManager{
 		bool _no_markers;
 
 		Eigen::Matrix<double, 3, Dynamic> _wps_1to10;
+
+		Eigen::Matrix4d _H_odom_arena_sp;
+		double _transform_filter_rate;
+		bool _continous_correction;
+		bool _new_transform;
 
 		// --- Visual Servoing ---
 		Navigation *nvg = NULL;

@@ -34,6 +34,7 @@ ArucoManager::ArucoManager( bool test_mode){
 	_nh.getParam("min_height", _min_height);
 	_nh.getParam("Kp_vs", _Kp_vs);
 	_nh.getParam("Kd_vs", _Kd_vs);
+	_nh.getParam("transform_filter_rate", _transform_filter_rate);
 	//load_wps();
 	load_list(); 
 
@@ -41,13 +42,16 @@ ArucoManager::ArucoManager( bool test_mode){
 	_markers_list_sub = _nh.subscribe(_markers_list_topic_name.c_str(), 1, &ArucoManager::markers_list_cb, this);
 
 	nvg = new Navigation;
-	nvg->setTestMode(false);
 	_visual_servoing = false;
 	_land_on_marker = false;
 	_no_markers = true;
 	_des_height =  0.0;
 
 	_test_mode = test_mode;
+	_continous_correction = false;
+	_new_transform = false;
+
+	_H_odom_arena_sp = Eigen::Matrix4d::Identity();
 }
 
 void ArucoManager::load_wps(){
@@ -114,9 +118,10 @@ void ArucoManager::markers_cb(aruco_msgs::MarkerArray markers){
 			if(isKnown(markers.markers[i].id)){
 				known = true;
 				_actual_marker = markers.markers[i];
-				
-				//if( nvg->getTakeoff() )
-				//	correctDronePosition();
+
+				if ( nvg->getTakeoff() && _continous_correction){
+					correctWorldTransform();
+				}
 
 			}
 
@@ -185,53 +190,88 @@ bool ArucoManager::getKnownMarkerPos( const int id, Eigen::Vector3d& pos){
 	return false;
 }
 
-bool ArucoManager::correctDronePosition(){
+bool ArucoManager::correctWorldTransform( bool hard){
 	aruco_msgs::Marker marker;
 	Eigen::Vector3d dist;
 	Eigen::Vector3d marker_pos;
-	Eigen::Vector4d marker_dir;
+
+	Eigen::Vector4d marker_quat;
+	Eigen::Vector4d world_pos_odom;
+
 	Eigen::Matrix3d R_marker;
-	Eigen::Matrix3d R_marker_D;
-	Eigen::Matrix4d H_marker_A;
-	Eigen::Matrix4d H_marker_D;
-	Eigen::Matrix4d H_D_A;
-	
+	Eigen::Matrix3d R_marker_drone;
+	Eigen::Matrix3d R_drone;
+
+	Eigen::Matrix4d H_marker_arena;
+	Eigen::Matrix4d H_marker_drone;
+	Eigen::Matrix4d H_drone_arena;
+	Eigen::Matrix4d H_drone_odom;
+	Eigen::Matrix4d H_odom_arena;	
 
 	R_marker << 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0;
 	
 	if( getActualMarker(marker) ){
 		
 		if( isKnown(marker.id) ){
-			
+
+			world_pos_odom = nvg->getWorldPosOdom();
+
 			getKnownMarkerPos(marker.id, marker_pos);
 			dist << marker.pose.pose.position.x, marker.pose.pose.position.y, marker.pose.pose.position.z;
-			marker_dir << marker.pose.pose.orientation.w, marker.pose.pose.orientation.x, marker.pose.pose.orientation.y, marker.pose.pose.orientation.z;			
+			marker_quat << marker.pose.pose.orientation.w, marker.pose.pose.orientation.x, marker.pose.pose.orientation.y, marker.pose.pose.orientation.z;			
 			
-			H_marker_A.block<3,3>(0,0) = R_marker;
-			H_marker_A.block<3,1>(0,3) = marker_pos;
-			H_marker_A(3,0) = 0.0;
-			H_marker_A(3,1) = 0.0;
-			H_marker_A(3,2) = 0.0;
-			H_marker_A(3,3) = 1.0; 
+			R_drone = utilities::QuatToMat( nvg->getWorldQuatOdom() );
 
-			R_marker_D = utilities::QuatToMat( marker_dir );
+			H_marker_arena.block<3,3>(0,0) = R_marker;
+			H_marker_arena.block<3,1>(0,3) = marker_pos;
+			H_marker_arena(3,0) = 0.0;
+			H_marker_arena(3,1) = 0.0;
+			H_marker_arena(3,2) = 0.0;
+			H_marker_arena(3,3) = 1.0; 
 
-			H_marker_D.block<3,3>(0,0) = R_marker_D;
-			H_marker_D.block<3,1>(0,3) = dist;
-			H_marker_D(3,0) = 0.0;
-			H_marker_D(3,1) = 0.0;
-			H_marker_D(3,2) = 0.0;
-			H_marker_D(3,3) = 1.0;
+			R_marker_drone = utilities::QuatToMat( marker_quat );
+			dist = R_marker_drone * dist;
 
-			H_D_A = H_marker_A * H_marker_D.inverse();
-			//H_D_A(2,3) = 0.0;
+			H_marker_drone.block<3,3>(0,0) = R_marker_drone;
+			H_marker_drone.block<3,1>(0,3) = dist;
+			H_marker_drone(3,0) = 0.0;
+			H_marker_drone(3,1) = 0.0;
+			H_marker_drone(3,2) = 0.0;
+			H_marker_drone(3,3) = 1.0;
 
+			H_drone_odom.block<3,3>(0,0) = R_drone;
+			H_drone_odom.block<4,1>(0,3) = world_pos_odom;
+			H_drone_odom(3,0) = 0.0;
+			H_drone_odom(3,1) = 0.0;
+			H_drone_odom(3,2) = 0.0;
+
+			H_drone_arena = H_marker_arena * H_marker_drone.inverse();
+
+			H_odom_arena = H_drone_arena * H_drone_odom.inverse();
+
+			Eigen::Matrix3d R_odom_arena;
+			R_odom_arena = H_odom_arena.block<3,3>(0,0);
+			Eigen::Vector3d XYZ_odom_arena;
+			XYZ_odom_arena = utilities::R2XYZ( R_odom_arena );
+			double yaw_odom_arena = XYZ_odom_arena(2);
+
+			H_odom_arena.block<3,3>(0,0) = utilities::rotz(yaw_odom_arena);
+
+			
 			cout << "marker_pos: " << marker_pos.transpose() << " norm: " << marker_pos.norm() << endl;
 			cout << "dist: " << dist.transpose() << " norm: " << dist.norm() << endl;
+			cout << "world pos: " << nvg->getWorldPos().transpose() << endl;
 			cout << "odom_pos: " << nvg->getWorldPosOdom().transpose() << " norm: " << nvg->getWorldPosOdom().norm() << endl;
-			cout << "H_D_A: \n" << H_D_A << endl;
+			cout << "H_odom_arena: \n" << H_odom_arena << endl;
+			
 
-			nvg->setWorldOffset( H_D_A );
+			if( hard )
+				nvg->setWorldTransform( H_odom_arena);
+			
+			
+			_H_odom_arena_sp =  H_odom_arena;
+			_new_transform = true;
+
 
 			return true;
 			
@@ -301,7 +341,7 @@ void ArucoManager::visualServoing(){
 				
 				// Tutto calcolato in terna odom
 				world_pos = nvg->getWorldPos();
-				world_offset = nvg->getWorldOffset();
+				world_offset = nvg->getWorldTransform();
 				
 				//Get distance from marker
 				dist_marker << marker.pose.pose.position.x, marker.pose.pose.position.y, marker.pose.pose.position.z;
@@ -422,6 +462,97 @@ bool ArucoManager::landOnMarker(const int id){
 	}
 }
 
+void ArucoManager::worldTransformFilter(){
+	static int count_per_id;
+	static int id_seen;
+	Eigen::Matrix4d H_odom_arena;
+	Eigen::Matrix4d actual_H_odom_arena;
+	Eigen::Vector3d actual_XYZ;
+	Eigen::Vector3d actual_pos_offset;
+	Eigen::Vector3d new_pos_offset;
+	Eigen::Vector3d pos_offset_sp;
+	Eigen::Vector3d XYZ;
+	double XYZ_error;
+	Eigen::Vector3d new_att_offset;
+	double actual_yaw_offset;
+	double new_yaw_offset;
+	double yaw_offset_sp;
+	double yaw_error;
+	double pos_error;
+
+	ros::Rate r(_transform_filter_rate);
+	double dt = 1.0 / _transform_filter_rate;
+
+	H_odom_arena = Eigen::Matrix4d::Identity();
+
+	count_per_id = 0;
+	id_seen = 0;
+
+	while( ros::ok() ){	
+
+		if( _new_transform ){
+			actual_H_odom_arena = nvg->getWorldTransform();
+			actual_XYZ = utilities::R2XYZ( actual_H_odom_arena.block<3,3>(0,0) );
+			actual_yaw_offset = actual_XYZ(2);
+			actual_pos_offset = actual_H_odom_arena.block<3,1>(0,3);
+
+			pos_offset_sp = _H_odom_arena_sp.block<3,1>(0,3);
+			XYZ = utilities::R2XYZ( _H_odom_arena_sp.block<3,3>(0,0) );
+			yaw_offset_sp = XYZ(2);
+
+			pos_error = (pos_offset_sp - actual_pos_offset).norm();
+			XYZ_error = (XYZ - actual_XYZ).norm();
+			yaw_error = yaw_offset_sp - actual_yaw_offset;
+
+			_new_transform = false;
+
+			count_per_id = 0;
+		}
+
+		if( id_seen != _actual_marker.id ){
+
+			id_seen = _actual_marker.id;
+			count_per_id = 0;
+
+		}
+		else if ( id_seen == _actual_marker.id )
+			count_per_id++;
+		
+		if ( count_per_id <=25  ){
+
+			if( ( pos_error > 0.05 || XYZ_error > 0.1) && (  pos_error <= 0.3 && XYZ_error <= 0.25) ){ //aggiungere if su count_per_id se serve
+
+				new_pos_offset = actual_pos_offset + ( pos_offset_sp - actual_pos_offset ) / dt;
+
+				new_att_offset = actual_XYZ + ( XYZ - actual_XYZ ) / dt;
+
+				H_odom_arena.block<3,3>(0,0) = utilities::XYZ2R( new_att_offset );
+				H_odom_arena.block<3,1>(0,3) = new_pos_offset;
+
+				cout << "correggo " << count_per_id << " id: " << id_seen <<  endl;
+				//cout << "H_o_a: \n" << H_odom_arena << endl;
+				cout << "actual: \n" << actual_H_odom_arena << endl;
+				cout << "new_sp: \n" << _H_odom_arena_sp << endl;
+				cout << "\n ----- \n";
+				
+				nvg->setWorldTransform( H_odom_arena );
+				
+			}
+			else{
+				cout << "outlayer scartato, diff pos: " << pos_error << " yaw: " << yaw_error << endl;
+				cout << "diff x: " << pos_offset_sp(0) - actual_pos_offset(0) << " " 
+						<< "diff y: " << pos_offset_sp(1) - actual_pos_offset(1) << " " 
+						<< "diff z: " << pos_offset_sp(2) - actual_pos_offset(2) << endl;
+			} 
+		}
+
+
+		r.sleep();
+	}
+
+
+}
+
 void ArucoManager::Routine(){
 	aruco_msgs::Marker mark;
 	Eigen::Vector3d pos;
@@ -434,13 +565,15 @@ void ArucoManager::Routine(){
 
 	_des_height = 3.5;
 
+	_continous_correction =false;
+
 	while( ros::ok() ){
 
 		if( !first_takeoff ){
 			cout << "TAKEOFF \n";
 			nvg->takeoff(_des_height, 0.4);
 
-			if( correctDronePosition() )
+			if( correctWorldTransform(true) )
 				first_takeoff = true;
 			else
 				nvg->land();
@@ -451,24 +584,30 @@ void ArucoManager::Routine(){
 
 			if(!seq_finished){
 				cout << "Sequenza \n";
-				//pos << 2.0, 2.0, 3.5;
+				//pos << 1.0, 4.0, 3.5;
 				//nvg->moveTo(pos);
 
-				//nvg->moveToWithYaw(pos, 1.57);
+				//nvg->moveTo(pos);
 				//sleep(1.0);
 				
-				moveToMarker(2, 3.5);
+				moveToMarker(4, 3.5);
 				
 				sleep(2.0);
 
 				
-				correctDronePosition();
+				correctWorldTransform(true);
+				
+				sleep(0.2);
+
+				moveToMarker(5, 3.5);
 				
 				sleep(2.0);
+				correctWorldTransform(true);
 
 				moveToMarker(1, 3.5);
 				
 				sleep(2.0);
+
 				
 				seq_finished = true;
 				cout << "Sequenza terminata \n";
@@ -500,13 +639,15 @@ void ArucoManager::TestRoutine(){
 		getline(cin, key);
 
 		if(key == "p"){
-			correctDronePosition();
-
+			correctWorldTransform();
+			
+			/*
 			cout << "world pos: " << nvg->getWorldPos().transpose() << endl;
-			cout << "odom_pos: " << (nvg->getWorldOffset().inverse() * nvg->getWorldPos()).transpose() << endl;
+			cout << "odom_pos: " << (nvg->getWorldTransform().inverse() * nvg->getWorldPos()).transpose() << endl;
 			cout << "yaw: " << nvg->getYaw() << endl;
-			cout << "sp: " << (nvg->getWorldOffset().inverse() * pos).transpose() << endl;
+			cout << "sp: " << (nvg->getWorldTransform().inverse() * pos).transpose() << endl;
 			cout << " \n ---- \n";
+			*/
 		}
 
 
@@ -515,19 +656,6 @@ void ArucoManager::TestRoutine(){
 
 }
 
-
- /*
-void double_camera_manager::tf_broadcast_pose(geometry_msgs::PoseStamped p, std::string child_frame, std::string parent_frame){
-
-    tf::Transform transform;
-    transform.setOrigin(tf::Vector3(p.pose.position.x,p.pose.position.y,p.pose.position.z));
-    tf::Quaternion q(p.pose.orientation.x,p.pose.orientation.y,p.pose.orientation.z,p.pose.orientation.w);
-    transform.setRotation(q);
-    tf::StampedTransform stamp_transform(transform, ros::Time::now(), parent_frame, child_frame);
-    _broadcaster.sendTransform(stamp_transform);
-
-}
-*/
 void ArucoManager::run(){
 
 	cout << "test_mode: " << _test_mode << endl;
@@ -536,13 +664,20 @@ void ArucoManager::run(){
 
 		boost::thread traj_gen_t( &Navigation::setPointPublisher, nvg);
 		sleep(1);
+		//boost::thread transform_filter_t( &ArucoManager::worldTransformFilter, this);
+		boost::thread tf_broadcast_pose_odom_t( &Navigation::tf_broadcast_poses, nvg);
+		//boost::thread tf_broadcast_pose_odom_t( &Navigation::tf_broadcast_pose_odom, nvg);
+		//boost::thread tf_broadcast_pose_arena_t( &Navigation::tf_broadcast_pose_arena, nvg);
+		//boost::thread tf_broadcast_odom_arena_t( &Navigation::tf_broadcast_odom_arena, nvg);
 		//boost::thread visual_t( &ArucoManager::visualServoing, this);
 		boost::thread routine_t( &ArucoManager::Routine, this);
 		
 	}
 	else if( _test_mode ){
+		boost::thread transform_filter_t( &ArucoManager::worldTransformFilter, this);
 		boost::thread test_routine_t( &ArucoManager::TestRoutine, this);
 	}
+
 	ros::spin();
 }
 
