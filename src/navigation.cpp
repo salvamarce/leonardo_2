@@ -63,12 +63,12 @@ Navigation::Navigation() {
    _take_off = false;
    _act_traj_gen = true;
 
-   _H_odom_arena << 1.0, 0.0, 0.0, 0.0,
-                    0.0, 1.0, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0;
+   _H_odom_arena = Eigen::Matrix4d::Identity();
 
-   _world_pos << 0.0, 0.0, 0.0, 1.0;
+   _world_pos << 0.0, 0.0, _drone_height, 1.0;
+   _world_pos_odom << 0.0, 0.0, 0.0, 1.0;
+   _world_quat << 1.0, 0.0, 0.0, 0.0;
+   _world_quat_odom << 1.0, 0.0, 0.0, 0.0;
 
 }
 
@@ -81,9 +81,10 @@ void Navigation::pose_cb ( geometry_msgs::PoseStamped msg ) {
    Eigen::Vector4d temp;
    Eigen::Vector3d rpy;
 
-   _world_pos_odom << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z + _drone_height, 1.0;
+   _world_pos_odom << msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1.0;
 
    _world_pos = _H_odom_arena * _world_pos_odom;
+   //_world_pos(2) += _drone_height;
 
    rpy = utilities::R2XYZ ( _H_odom_arena.block<3,3>(0,0) * utilities::QuatToMat ( Eigen::Vector4d( msg.pose.orientation.w,  msg.pose.orientation.x,  msg.pose.orientation.y,  msg.pose.orientation.z) ) );
    _world_quat = utilities::rot2quat( _H_odom_arena.block<3,3>(0,0) * utilities::QuatToMat ( Eigen::Vector4d( msg.pose.orientation.w,  msg.pose.orientation.x,  msg.pose.orientation.y,  msg.pose.orientation.z) )  );
@@ -129,7 +130,7 @@ void Navigation::takeoff( const double altitude, double vel) {
 
    moveTo(pos_sp, vel);
 
-   while( !arrived( pos_sp ) ) {
+   while( !arrived( pos_sp )) {
       sleep(0.001);
    }
 
@@ -212,7 +213,7 @@ bool Navigation::arrived( const Eigen::Vector3d pos_sp){
       return true;
    }
    else{
-
+      //cout << "e_pos: " << epx << " " << epy << " " << epz << endl;
       return false;
    }
 
@@ -265,8 +266,8 @@ void Navigation::setPointPublisher(){
 
     // *** Ragiona sempre in terna odom ***
 
-   des_pos  = (_H_odom_arena.inverse() * _world_pos).block<3,1>(0,0);
-   des_yaw = _mes_yaw;
+   des_pos  = _world_pos_odom.block<3,1>(0,0);
+   des_yaw = _mes_yaw_odom;
 
    while( ros::ok() ){
 
@@ -288,9 +289,10 @@ void Navigation::setPointPublisher(){
          //des_pos = _H_odom_arena.block<3,3>(0,0) * _pos_sp;
          des_pos = _pos_sp;
 
-         if(des_pos(2) < 0.0) 
-            des_pos(2) = 0.0;
-         else if(des_pos(2) > _max_height)
+         //if(des_pos(2) < 0.0) 
+           // des_pos(2) = 0.0;
+         //else 
+         if(des_pos(2) > _max_height)
             des_pos(2) = _max_height;
 
          des_yaw = _yaw_sp;
@@ -486,6 +488,8 @@ void Navigation::moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dyn
    Eigen::Vector4d att;
    Eigen::Vector3d XYZ;
    Eigen::Vector4d pos_sp;
+   Eigen::Matrix4d sp;
+   sp = Eigen::Matrix4d::Identity();
 
    double des_vel;
 
@@ -505,10 +509,14 @@ void Navigation::moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dyn
 
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
-         XYZ = utilities::R2XYZ( utilities::QuatToMat(att) );
+         
+         sp.block<3,3>(0,0) = utilities::QuatToMat(att);
+         sp.block<4,1>(0,3) = pos_sp;
 
-         _pos_sp = (_H_odom_arena.inverse() * pos_sp).block<3,1>(0,0) ;
-         _yaw_sp = XYZ(2);
+         sp = _H_odom_arena.inverse() * sp;
+
+         _pos_sp = sp.block<3,1>(0,3);
+         _yaw_sp = utilities::R2XYZ( sp.block<3,3>(0,0))(2);
 
          r.sleep();
       }
@@ -525,9 +533,11 @@ void Navigation::moveToWps( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> 
    Eigen::Vector3d XYZ;
    Eigen::Vector4d pos_sp;
    Eigen::VectorXd yaw;
+   Eigen::Matrix4d sp;
+   sp = Eigen::Matrix4d::Identity();
 
    yaw.resize(1);
-   yaw << 0.0;
+   yaw << _mes_yaw;
 
    double des_vel;
 
@@ -547,10 +557,14 @@ void Navigation::moveToWps( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> 
 
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
-         XYZ = utilities::R2XYZ( utilities::QuatToMat(att) );
+         
+         sp.block<3,3>(0,0) = utilities::QuatToMat(att);
+         sp.block<4,1>(0,3) = pos_sp;
 
-         _pos_sp = (_H_odom_arena.inverse() * pos_sp).block<3,1>(0,0) ;
-         _yaw_sp = XYZ(2);
+         sp = _H_odom_arena.inverse() * sp;
+
+         _pos_sp = sp.block<3,1>(0,3);
+         _yaw_sp = utilities::R2XYZ( sp.block<3,3>(0,0))(2);
 
          r.sleep();
       }
@@ -566,6 +580,8 @@ void Navigation::moveToWithYaw( const Eigen::Vector3d dest, const double yaw , c
    Eigen::Vector4d att;
    Eigen::Vector3d XYZ;
    Eigen::Vector4d pos_sp;
+   Eigen::Matrix4d sp;
+   sp = Eigen::Matrix4d::Identity();
    double des_vel;
 
    ros::Rate r(_traj_rate);
@@ -585,18 +601,22 @@ void Navigation::moveToWithYaw( const Eigen::Vector3d dest, const double yaw , c
 
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
-         XYZ = utilities::R2XYZ( utilities::QuatToMat(att) );
 
-         _pos_sp = (_H_odom_arena.inverse() * pos_sp).block<3,1>(0,0) ;
-         _yaw_sp = XYZ(2);
+         sp.block<3,3>(0,0) = utilities::QuatToMat(att);
+         sp.block<4,1>(0,3) = pos_sp;
+
+         sp = _H_odom_arena.inverse() * sp;
+
+         _pos_sp = sp.block<3,1>(0,3);
+         _yaw_sp = utilities::R2XYZ( sp.block<3,3>(0,0))(2);
 
          r.sleep();
       }
    }
    else{
       
-      pos_sp << dest(0), dest(1), dest(2), 1.0;
-      _pos_sp = (_H_odom_arena.inverse() * pos_sp).block<3,1>(0,0);
+      //Terna odom
+      _pos_sp = dest;
       _yaw_sp = yaw;
 
    }   
@@ -611,7 +631,8 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
    Eigen::Vector4d att;
    Eigen::Vector3d XYZ;
    Eigen::Vector4d pos_sp;
-   double yaw = _mes_yaw;
+   Eigen::Matrix4d sp;
+   double yaw ;
    double des_vel;
 
    ros::Rate r(_traj_rate);
@@ -623,10 +644,14 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 
    _setpoint = dest;
 
+   yaw = _mes_yaw;
+
    cout << "sp_arena: " << dest.transpose() << endl;
    Eigen::Vector4d destt;
    destt << dest(0), dest(1), dest(2), 1.0;
    cout << "sp_odom: " << (_H_odom_arena.inverse() * destt).transpose() << endl;
+
+   sp = Eigen::Matrix4d::Identity();
 
    if( _act_traj_gen ){
 
@@ -635,10 +660,14 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
       while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen ){
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
-         XYZ = utilities::R2XYZ( utilities::QuatToMat(att) );
          
-         _pos_sp = (_H_odom_arena.inverse() * pos_sp ).block<3,1>(0,0);
-         _yaw_sp = XYZ(2);
+         sp.block<3,3>(0,0) = utilities::QuatToMat(att);
+         sp.block<4,1>(0,3) = pos_sp;
+
+         sp = _H_odom_arena.inverse() * sp;
+
+         _pos_sp = sp.block<3,1>(0,3);
+         _yaw_sp = utilities::R2XYZ( sp.block<3,3>(0,0))(2);
          
          //cout << "sp_map: " << pos_sp.transpose() << endl;
          //cout << "sp_odo: " << _pos_sp.transpose() << endl;
@@ -648,9 +677,9 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
    }
    else{
 
-      pos_sp << dest(0), dest(1), dest(2), 1.0;
-      _pos_sp = (_H_odom_arena.inverse() * pos_sp).block<3,1>(0,0);
-      _yaw_sp = yaw;
+      //Terna odom
+      _pos_sp = dest;
+      _yaw_sp = _mes_yaw_odom;
 
    } 
 
@@ -661,12 +690,14 @@ void Navigation::land( double altitude, double vel) {
    Eigen::Vector3d pos_sp;
    double des_vel;
    
-   pos_sp << _world_pos(0), _world_pos(1), altitude + _height_threshold;
+   pos_sp << _world_pos(0), _world_pos(1), altitude;
 
    if(vel == 0.0)
       des_vel = _cruise_vel;
    else 
       des_vel = vel;
+   
+   _act_traj_gen = true;
    
    moveTo(pos_sp, vel);
 
@@ -728,7 +759,7 @@ void Navigation::tf_broadcast_pose_arena(){
     transform.setOrigin(tf::Vector3(_world_pos(0),_world_pos(1),_world_pos(2)));
     tf::Quaternion q(_world_quat(1),_world_quat(2),_world_quat(3),_world_quat(0));
     transform.setRotation(q);
-    tf::StampedTransform stamp_transform(transform, ros::Time::now(), "map", "base_link");
+    tf::StampedTransform stamp_transform(transform, ros::Time::now(), "map_vis", "base_link_vis");
     _broadcaster.sendTransform(stamp_transform);
 
 }
@@ -741,7 +772,7 @@ void Navigation::tf_broadcast_odom_arena(){
     quat = utilities::rot2quat( _H_odom_arena.block<3,3>(0,0) );
     tf::Quaternion q( quat(1),quat(2),quat(3),quat(0) );
     transform.setRotation(q);
-    tf::StampedTransform stamp_transform(transform, ros::Time::now(), "map", "odom");
+    tf::StampedTransform stamp_transform(transform, ros::Time::now(), "map_vis", "odom_vis");
     _broadcaster.sendTransform(stamp_transform);
 
 }
@@ -752,7 +783,7 @@ void Navigation::tf_broadcast_pose_odom(){
     transform.setOrigin(tf::Vector3(_world_pos_odom(0),_world_pos_odom(1),_world_pos_odom(2)));
     tf::Quaternion q(_world_quat_odom(1),_world_quat_odom(2),_world_quat_odom(3),_world_quat_odom(0));
     transform.setRotation(q);
-    tf::StampedTransform stamp_transform(transform, ros::Time::now(), "odom", "base_link");
+    tf::StampedTransform stamp_transform(transform, ros::Time::now(), "odom_vis", "base_link_vis");
     _broadcaster.sendTransform(stamp_transform);
 
 }

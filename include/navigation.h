@@ -54,13 +54,14 @@ class Navigation{
 		void rotate( const double angle, double vel = 0.0); 
 
 		//Land at a desired altitude with desired velocity
-		void land( double altitude = 0.0, const double vel = 0.0 );
+		void land( double altitude = -0.3, const double vel = 0.0 );
 
 		//Activate or disable trajectory generator
 		void activateTrajectoryGenerator( const bool act) { _act_traj_gen = act;}
 
 		//Get functions
 		const bool getTakeoff() {return _take_off;}
+		const bool getLand() {return !_take_off;}
 		const Eigen::Vector4d getWorldPos() { return _world_pos; }
 		const Eigen::Vector4d getWorldPosOdom() { return _world_pos_odom; }
 		const double getYaw() { return _mes_yaw; }
