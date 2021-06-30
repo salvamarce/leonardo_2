@@ -64,6 +64,11 @@ target_link_libraries( simulation_main ${catkin_LIBRARIES})
 add_executable( t265_matrix src/t265_matrix.cpp )
 target_link_libraries( t265_matrix ${catkin_LIBRARIES})
 
+
+add_executable( socket_tf_listener src/socket_tf_listener.cpp)
+target_link_libraries( socket_tf_listener ${catkin_LIBRARIES})
+
+
 catkin_install_python(PROGRAMS scripts/display_map.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

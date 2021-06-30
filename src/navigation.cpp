@@ -718,6 +718,58 @@ void Navigation::setWorldTransform(const Eigen::Ref<Eigen::Matrix<double, 4, 4>>
 
 void Navigation::tf_broadcast_poses(){
 
+   int comm_sp;
+   create_socket("192.168.0.99", 9090, &comm_sp);
+
+
+   ros::Rate r(5);
+
+   Poses3D tf_poses;
+
+   while(ros::ok()) {
+
+
+
+Pose3D a_bl;
+	Pose3D a_o;
+	Pose3D o_bl;
+
+      tf_poses.bl_a.x = _world_pos(0);
+      tf_poses.bl_a.y = _world_pos(1); 
+      tf_poses.bl_a.z = _world_pos(2);
+
+      tf_poses.bl_a.qw = _world_quat(0);
+      tf_poses.bl_a.qx = _world_quat(1);
+      tf_poses.bl_a.qy = _world_quat(2);
+      tf_poses.bl_a.qz = _world_quat(3);
+
+      tf_poses.o_a.x = _H_odom_arena(0,3);
+      tf_poses.o_a.y = _H_odom_arena(1,3); 
+      tf_poses.o_a.z = _H_odom_arena(2,3);
+      Eigen::Vector4d quat_o_a;
+      quat_o_a = utilities::rot2quat( _H_odom_arena.block<3,3>(0,0) );
+
+      tf_poses.o_a.qw = quat_o_a(0);
+      tf_poses.o_a.qx = quat_o_a(1);
+      tf_poses.o_a.qy = quat_o_a(2);
+      tf_poses.o_a.qz = quat_o_a(3);
+
+      tf_poses.bl_o.x = _world_pos_odom(0);
+      tf_poses.bl_o.y = _world_pos_odom(1); 
+      tf_poses.bl_o.z = _world_pos_odom(2);
+
+      tf_poses.bl_o.qw = _world_quat_odom(0);
+      tf_poses.bl_o.qx = _world_quat_odom(1);
+      tf_poses.bl_o.qy = _world_quat_odom(2);
+      tf_poses.bl_o.qz = _world_quat_odom(3);
+
+      int n = write( comm_sp, &tf_poses, sizeof(tf_poses));
+      cout << "Scritti: " << n << endl;
+
+      r.sleep();
+   }
+
+   /*
    tf::Transform transform_mb;
    tf::Transform transform_mo;
    tf::Transform transform_ob;
@@ -729,6 +781,9 @@ void Navigation::tf_broadcast_poses(){
       transform_mb.setRotation(q_mb);
       tf::StampedTransform stamp_transform_mb(transform_mb, ros::Time::now(), "map_vis", "base_link_vis");
 
+Pose3D a_bl;
+Pose3D a_o;
+Pose3D o_bl;
 
 
       transform_mo.setOrigin(tf::Vector3(_H_odom_arena(0,3),_H_odom_arena(1,3),_H_odom_arena(2,3)));
@@ -748,7 +803,12 @@ void Navigation::tf_broadcast_poses(){
       _broadcaster.sendTransform(stamp_transform_ob);
 
 
-    }
+   }
+   */
+
+  //Write out these data on socket
+
+
 
 }
  

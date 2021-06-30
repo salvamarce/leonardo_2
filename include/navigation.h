@@ -27,10 +27,61 @@
 #include <iostream>
 #include <fstream>
 
+//Socket functions
+#include <fcntl.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/mman.h>
+#include <sys/io.h>
+#include <sys/time.h>
+#include <netdb.h>
+
 #pragma once
 
 using namespace Eigen;
 using namespace std;
+
+
+
+struct Pose3D {
+	float x;
+	float y;
+	float z;
+	float qw;
+	float qx;
+	float qy;
+	float qz;
+};
+
+struct Poses3D {
+	Pose3D bl_a;
+	Pose3D o_a;
+	Pose3D bl_o;
+};
+
+
+//Creazione socket in SCRITTURA
+inline int create_socket(char* dest, int port, int *sock) {
+	struct sockaddr_in temp; 
+	struct hostent *h;
+	int error;
+
+	temp.sin_family=AF_INET;
+	temp.sin_port=htons(port);
+	h=gethostbyname(dest);
+
+	if (h==0) {
+		printf("Gethostbyname fallito\n");
+		exit(1);
+	}
+
+	bcopy(h->h_addr,&temp.sin_addr,h->h_length);
+	*sock=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	error=connect(*sock, (struct sockaddr*) &temp, sizeof(temp));
+	return error;
+}
 
 class Navigation{
 	public:
