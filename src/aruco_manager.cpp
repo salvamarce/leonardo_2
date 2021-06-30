@@ -708,7 +708,7 @@ void ArucoManager::run(){
 		boost::thread traj_gen_t( &Navigation::setPointPublisher, nvg);
 		sleep(1);
 		//boost::thread transform_filter_t( &ArucoManager::worldTransformFilter, this);
-		//boost::thread tf_broadcast_pose_odom_t( &Navigation::tf_broadcast_poses, nvg);
+		boost::thread tf_broadcast_pose_odom_t( &Navigation::tf_broadcast_poses, nvg);
 		//boost::thread tf_broadcast_pose_odom_t( &Navigation::tf_broadcast_pose_odom, nvg);
 		//boost::thread tf_broadcast_pose_arena_t( &Navigation::tf_broadcast_pose_arena, nvg);
 		//boost::thread tf_broadcast_odom_arena_t( &Navigation::tf_broadcast_odom_arena, nvg);

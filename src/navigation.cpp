@@ -728,12 +728,6 @@ void Navigation::tf_broadcast_poses(){
 
    while(ros::ok()) {
 
-
-
-Pose3D a_bl;
-	Pose3D a_o;
-	Pose3D o_bl;
-
       tf_poses.bl_a.x = _world_pos(0);
       tf_poses.bl_a.y = _world_pos(1); 
       tf_poses.bl_a.z = _world_pos(2);
