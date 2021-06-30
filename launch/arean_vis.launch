@@ -1,0 +1,8 @@
+<launch>
+	<env name="GAZEBO_MODEL_PATH" value="$(find leonardo_2)/models:$(optenv GAZEBO_MODEL_PATH)" />
+    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find leonardo_2)/config/campo_gara.rviz" />
+    <node pkg="leonardo_2" name="display_map" type="display_map.py" output="screen" />
+    
+
+
+</launch>

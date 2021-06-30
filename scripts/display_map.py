@@ -17,7 +17,7 @@ if __name__ == '__main__':
       while not rospy.is_shutdown():
 
          marker = Marker()
-         marker.header.frame_id = "map_vis"
+         marker.header.frame_id = "arena"
          marker.type = marker.MESH_RESOURCE
          marker.mesh_resource = "package://leonardo_2/models/campo_gara/meshes/campo_gara.dae"
          marker.scale.x = 1000

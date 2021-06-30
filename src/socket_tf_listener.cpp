@@ -1,6 +1,9 @@
 
 #include "ros/ros.h"
 
+#include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
+
 //Socket functions
 #include <fcntl.h>
 #include <arpa/inet.h>
@@ -72,7 +75,7 @@ class sock_tf_listener {
 
 
 sock_tf_listener::sock_tf_listener() {
-    
+
 }
 
 void sock_tf_listener::listener() {
@@ -80,23 +83,49 @@ void sock_tf_listener::listener() {
     int sock;
     listener_socket( 9090, &sock);
 
-    Poses3D p;  
+    Poses3D tf_poses;  
     int slen, rlen;
     sockaddr_in si_me, si_other;
 
+
+    tf::Transform transform_bl_a;
+    tf::Transform transform_o_a;
+    tf::Transform transform_bl_o;
+
+    tf::TransformBroadcaster broadcaster;
     while(ros::ok() ) {
 
-        rlen = recvfrom(sock, &p, sizeof(p),0,(struct sockaddr*)&si_other, (socklen_t*)&slen);
-        cout << "rlen: " << rlen << endl;
+        rlen = recvfrom(sock, &tf_poses, sizeof(tf_poses),0,(struct sockaddr*)&si_other, (socklen_t*)&slen);
 
-    }
+        transform_bl_a.setOrigin(tf::Vector3( tf_poses.bl_a.x, tf_poses.bl_a.y, tf_poses.bl_a.z  )  );
+        tf::Quaternion q_bl_a( tf_poses.bl_a.qx,  tf_poses.bl_a.qy,  tf_poses.bl_a.qz,  tf_poses.bl_a.qw);
+        transform_bl_a.setRotation(q_bl_a);
+        tf::StampedTransform stamp_transform_bl_a(transform_bl_a, ros::Time::now(), "arena", "base_link");
+
+
+        transform_o_a.setOrigin(tf::Vector3( tf_poses.o_a.x, tf_poses.o_a.y, tf_poses.o_a.z  )  );
+        tf::Quaternion q_o_a( tf_poses.o_a.qx,  tf_poses.o_a.qy,  tf_poses.o_a.qz,  tf_poses.o_a.qw);
+        transform_o_a.setRotation(q_o_a);
+        tf::StampedTransform stamp_transform_o_a(transform_o_a, ros::Time::now(), "arena", "odom");
+
+
+        transform_bl_o.setOrigin(tf::Vector3( tf_poses.bl_o.x, tf_poses.bl_o.y, tf_poses.bl_o.z  )  );
+        tf::Quaternion q_bl_o( tf_poses.bl_o.qx,  tf_poses.bl_o.qy,  tf_poses.bl_o.qz,  tf_poses.bl_o.qw);
+        transform_bl_o.setRotation(q_bl_o);
+        tf::StampedTransform stamp_transform_bl_o(transform_bl_o, ros::Time::now(), "odom", "base_link");
+
+        broadcaster.sendTransform(stamp_transform_bl_a);
+        broadcaster.sendTransform(stamp_transform_o_a);
+        broadcaster.sendTransform(stamp_transform_bl_o);
+  
+   }
 }
 
 
 
 void sock_tf_listener::run() {
 
-
+    boost::thread listener_t(&sock_tf_listener::listener, this);
     ros::spin();
 }
 
