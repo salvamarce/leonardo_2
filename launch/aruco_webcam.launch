@@ -11,8 +11,15 @@
 
   </node>
 
+  <!--
+    considero la terna camera con:
+    z verso il basso
+    y fronte drone
+    x sinistra del drone
+  -->
   <node pkg="tf" type="static_transform_publisher" name="camera_base_link_tf"
-              args="0.08 0.0 -0.13 -1.57 3.14 0.0 base_link head_cam 10" />
+        args="0.0 0.0 0.0 -1.57 3.14 0.0 base_link head_cam 10" />
+  <!-- ordine rotazioni : Yaw - Pitch - Roll -->
 
   <arg name="aruco_markerSize" default="0.50" /> <!-- in meter -->
   <arg name="aruco_ref_frame" default="base_link" /> <!-- leave empty and the pose will be published wrt param parent_name -->

@@ -62,6 +62,8 @@ Navigation::Navigation() {
    _trajectory = new CARTESIAN_PLANNER(_traj_rate);
    _take_off = false;
    _act_traj_gen = true;
+   _interrupt = false;
+   _localization_status = false;
 
    _H_odom_arena = Eigen::Matrix4d::Identity();
 
@@ -134,8 +136,10 @@ void Navigation::takeoff( const double altitude, double vel) {
       sleep(0.001);
    }
 
-   ROS_INFO("Takeoff completed");
    _take_off = true;
+
+   ROS_INFO("Takeoff completed");
+   
 
 }
 
@@ -416,8 +420,9 @@ void Navigation::trajectoryGeneratorWps(const Eigen::Ref<Eigen::Matrix<double, 3
    else
       wps_number = yaw.rows();
 
+
    for(int i=0; i < wps_number; i++){
-      
+
       if(i < pos.cols()){
          pose_sp.pose.position.x = pos(0, i);
          pose_sp.pose.position.y = pos(1, i);
@@ -445,17 +450,22 @@ void Navigation::trajectoryGeneratorWps(const Eigen::Ref<Eigen::Matrix<double, 3
          pose_sp.pose.orientation.y = quat(2);
          pose_sp.pose.orientation.z = quat(3);
       }
-   
+
       if( old_sp_pos != pos.block<3,1>(0,i) )
          time_traj_pos = ( pos.block<3,1>(0,i) - old_sp_pos ).norm() / vel;
       else
          time_traj_pos = 0.1;
 
-      if( old_sp_yaw != yaw(i) ){
-         if( yaw(i) > old_sp_yaw )
-            time_traj_yaw = ( yaw(i) - old_sp_yaw) / vel;
-         else if( yaw(i) < _mes_yaw )
-            time_traj_yaw = ( old_sp_yaw - yaw(i) ) / vel;
+
+      if(i < yaw.rows()){
+         if( old_sp_yaw != yaw(i) ){
+            if( yaw(i) > old_sp_yaw )
+               time_traj_yaw = ( yaw(i) - old_sp_yaw) / vel;
+            else if( yaw(i) < _mes_yaw )
+               time_traj_yaw = ( old_sp_yaw - yaw(i) ) / vel;
+         }
+         else
+            time_traj_yaw = 0.1;
       }
       else
          time_traj_yaw = 0.1;
@@ -469,14 +479,24 @@ void Navigation::trajectoryGeneratorWps(const Eigen::Ref<Eigen::Matrix<double, 3
          time_traj += times[times.size()-1];
                
       times.push_back(time_traj);
-      poses.push_back(pose_sp);
 
-      old_sp_yaw = yaw(i);
+      poses.push_back(pose_sp);
+     
+      
+      if(i < yaw.rows()){
+         old_sp_yaw = yaw(i);
+      }
+      else
+         old_sp_yaw = old_sp_yaw;
+
       old_sp_pos = pos.block<3,1>(0,i);
+      
    }
-         
-   _trajectory->set_waypoints(poses, times);      
+   
+   _trajectory->set_waypoints(poses, times);    
+     
    _trajectory->compute();
+   
 
 }
  
@@ -504,8 +524,8 @@ void Navigation::moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dyn
    if( _act_traj_gen ){
 
       trajectoryGeneratorWps(dest, yaw, des_vel);
-
-      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen ){
+      
+      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen && !_interrupt ){
 
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
@@ -520,6 +540,14 @@ void Navigation::moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dyn
 
          r.sleep();
       }
+
+      if( _interrupt ){
+         _pos_sp = _world_pos_odom.block<3,1>(0,0);
+         _yaw_sp = _mes_yaw_odom;
+
+         _interrupt = false;
+      }
+
    }
 
 }
@@ -548,26 +576,35 @@ void Navigation::moveToWps( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> 
    else 
       des_vel = vel;
 
+
    //This can work only with the trajectory generator
    if( _act_traj_gen ){
 
       trajectoryGeneratorWps(dest, yaw, des_vel);
 
-      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen ){
+      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen && !_interrupt ){
 
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
          
          sp.block<3,3>(0,0) = utilities::QuatToMat(att);
          sp.block<4,1>(0,3) = pos_sp;
-
+         
          sp = _H_odom_arena.inverse() * sp;
 
          _pos_sp = sp.block<3,1>(0,3);
          _yaw_sp = utilities::R2XYZ( sp.block<3,3>(0,0))(2);
-
+         
          r.sleep();
       }
+
+      if( _interrupt ){
+         _pos_sp = _world_pos_odom.block<3,1>(0,0);
+         _yaw_sp = _mes_yaw_odom;
+
+         _interrupt = false;
+      }
+
    }
 
 }
@@ -597,7 +634,7 @@ void Navigation::moveToWithYaw( const Eigen::Vector3d dest, const double yaw , c
 
       trajectoryGenerator(dest, yaw, des_vel);
 
-      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen ){
+      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen && !_interrupt ){
 
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
@@ -612,12 +649,27 @@ void Navigation::moveToWithYaw( const Eigen::Vector3d dest, const double yaw , c
 
          r.sleep();
       }
+      
+      if( _interrupt ){
+         _pos_sp = _world_pos_odom.block<3,1>(0,0);
+         _yaw_sp = _mes_yaw_odom;
+
+         _interrupt = false;
+      }
    }
    else{
       
       //Terna odom
-      _pos_sp = dest;
-      _yaw_sp = yaw;
+      if( !_interrupt ){
+         _pos_sp = dest;
+         _yaw_sp = yaw;
+      }
+      else{
+         _pos_sp = _world_pos_odom.block<3,1>(0,0);
+         _yaw_sp = _mes_yaw_odom;
+
+         _interrupt = false;
+      }
 
    }   
 
@@ -657,7 +709,7 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 
       trajectoryGenerator(dest, yaw, des_vel);
 
-      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen ){
+      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen && !_interrupt ){
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
          
@@ -674,12 +726,29 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 
          r.sleep();
       }
+
+      if( _interrupt ){
+         
+         _pos_sp = _world_pos_odom.block<3,1>(0,0);
+         _yaw_sp = _mes_yaw_odom;
+
+         _interrupt = false;
+      }
    }
    else{
 
       //Terna odom
-      _pos_sp = dest;
-      _yaw_sp = _mes_yaw_odom;
+      if ( !_interrupt ){
+         _pos_sp = dest;
+         _yaw_sp = _mes_yaw_odom;
+      }
+      else{
+         _pos_sp = _world_pos_odom.block<3,1>(0,0);
+         _yaw_sp = _mes_yaw_odom;
+
+         _interrupt = false;
+
+      }
 
    } 
 
@@ -713,6 +782,10 @@ void Navigation::land( double altitude, double vel) {
 void Navigation::setWorldTransform(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> new_H_odom_Arena){ 
    
    _H_odom_arena = new_H_odom_Arena;
+
+   _world_pos = _H_odom_arena * _world_pos_odom;
+
+   _localization_status = true;
 }
 
 
@@ -758,7 +831,7 @@ void Navigation::tf_broadcast_poses(){
       tf_poses.bl_o.qz = _world_quat_odom(3);
 
       int n = write( comm_sp, &tf_poses, sizeof(tf_poses));
-      cout << "Scritti: " << n << endl;
+      //cout << "Scritti: " << n << endl;
 
       r.sleep();
    }

@@ -10,7 +10,7 @@ class ArucoManager{
 	public:
 		ArucoManager( bool test_mode = false );
 
-		bool getActualMarker(aruco_msgs::Marker& marker);
+		bool getActualMarkers(std::vector<aruco_msgs::Marker> markers);
 		bool landOnMarker(const int id);
 		bool correctWorldTransform(bool hard = false );
 		bool isKnown(int ID);
@@ -19,6 +19,11 @@ class ArucoManager{
 		void Routine();
 		bool getKnownMarkerPos( const int id, Eigen::Vector3d& pos);
 		bool moveToMarker(const int id, const double height);
+
+		bool getNearestMarker( aruco_msgs::Marker& marker );
+		bool getNearestKnownMarker( aruco_msgs::Marker& marker );
+		bool getMarker( const int id, aruco_msgs::Marker& marker);
+
 		
 		bool setDesiredHeight(const double h) { _des_height = h; }
 		
@@ -28,26 +33,25 @@ class ArucoManager{
 		void load_list();
 		void load_wps();
 		void markers_cb(aruco_msgs::MarkerArray markers);
-		void markers_list_cb(std_msgs::UInt32MultiArray list);
 		void visualServoing();
-		void worldTransformFilter();
+		//void worldTransformFilter();
 
 		bool _test_mode;
 
-		std::vector<aruco_msgs::Marker> _knownList; //List of known markers
-		std::vector<aruco_msgs::Marker> _seenList;
 		ros::NodeHandle _nh;
 		ros::Subscriber _markers_sub;
 		ros::Subscriber _markers_list_sub;
 
-		aruco_msgs::Marker _actual_marker;
+		std::vector<aruco_msgs::Marker> _actual_markers;
+		std::vector<aruco_msgs::Marker> _knownList; //List of known markers
 		double _des_height;
 
 		string _markers_topic_name;
-		string _markers_list_topic_name;
 		bool _no_markers;
 
-		Eigen::Matrix<double, 3, Dynamic> _wps_1to10;
+		Eigen::Matrix<double, 3, Dynamic> _wps_9to3;
+		Eigen::Matrix<double, 3, Dynamic> _wps_3to2;
+		Eigen::Matrix<double, 3, Dynamic> _wps_2to6;
 
 		Eigen::Matrix4d _H_odom_arena_sp;
 		double _transform_filter_rate;

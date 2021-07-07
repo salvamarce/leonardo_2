@@ -27,7 +27,6 @@ void load_param( bool & p, bool def, string name ) {
 
 ArucoManager::ArucoManager( bool test_mode){
    _nh.getParam("markers_topic_name", _markers_topic_name);
-	_nh.getParam("markers_list_topic_name", _markers_list_topic_name);
 	_nh.getParam("rate_servoing", _rate_servoing);
 	_nh.getParam("theta_max", _theta_max);
 	_nh.getParam("vel_max", _vel_max);
@@ -35,11 +34,10 @@ ArucoManager::ArucoManager( bool test_mode){
 	_nh.getParam("Kp_vs", _Kp_vs);
 	_nh.getParam("Kd_vs", _Kd_vs);
 	_nh.getParam("transform_filter_rate", _transform_filter_rate);
-	//load_wps();
+	load_wps();
 	load_list(); 
 
 	_markers_sub = _nh.subscribe(_markers_topic_name.c_str(), 1, &ArucoManager::markers_cb, this);
-	_markers_list_sub = _nh.subscribe(_markers_list_topic_name.c_str(), 1, &ArucoManager::markers_list_cb, this);
 
 	nvg = new Navigation;
 	_visual_servoing = false;
@@ -52,29 +50,78 @@ ArucoManager::ArucoManager( bool test_mode){
 	_new_transform = false;
 
 	_H_odom_arena_sp = Eigen::Matrix4d::Identity();
+	
+	_actual_markers.clear();
+	_actual_markers.resize(0);
+	
 }
 
 void ArucoManager::load_wps(){
 
 	std::vector<double> wps;
-	wps.resize(30*3);
-	_wps_1to10.setZero(3,wps.size()/3);
 
-	if (_nh.hasParam("wps_1to10")){
+	//9 to 3
+	wps.resize(4*3);
+	_wps_9to3.setZero(3,wps.size()/3);
 
-		_nh.getParam("wps_1to10", wps);
+	if (_nh.hasParam("wps_9to3")){
 
-		int cols = _wps_1to10.cols();
+		_nh.getParam("wps_9to3", wps);
+
+		int cols = _wps_9to3.cols();
 		
-		for (int i = 0; i < (30*3 - 2); i+=3)
+		for (int i = 0; i < (4*3 - 2); i+=3)
 		{
-			_wps_1to10(0, i/3) = wps[i];
-			_wps_1to10(1, i/3) = wps[i+1];
-			_wps_1to10(2, i/3) = wps[i+2];
+			_wps_9to3(0, i/3) = wps[i];
+			_wps_9to3(1, i/3) = wps[i+1];
+			_wps_9to3(2, i/3) = wps[i+2];
 			
 		}
 		
 	 }
+	 cout << "_wps_9to3: " << _wps_9to3 << endl;
+
+	//3 to 2
+	wps.clear();
+	wps.resize(3*3);
+	_wps_3to2.setZero(3,wps.size()/3);
+
+	if (_nh.hasParam("wps_3to2")){
+
+		_nh.getParam("wps_3to2", wps);
+
+		int cols = _wps_3to2.cols();
+		
+		for (int i = 0; i < (3*3 - 2); i+=3)
+		{
+			_wps_3to2(0, i/3) = wps[i];
+			_wps_3to2(1, i/3) = wps[i+1];
+			_wps_3to2(2, i/3) = wps[i+2];
+			
+		}
+		
+	}
+
+	//2 to 6
+	wps.clear();
+	wps.resize(3*3);
+	_wps_2to6.setZero(3,wps.size()/3);
+
+	if (_nh.hasParam("wps_2to6")){
+
+		_nh.getParam("wps_2to6", wps);
+
+		int cols = _wps_2to6.cols();
+		
+		for (int i = 0; i < (3*3 - 2); i+=3)
+		{
+			_wps_2to6(0, i/3) = wps[i];
+			_wps_2to6(1, i/3) = wps[i+1];
+			_wps_2to6(2, i/3) = wps[i+2];
+			
+		}
+		
+	}
 
 }
 
@@ -107,42 +154,66 @@ void ArucoManager::load_list(){
 }
 
 void ArucoManager::markers_cb(aruco_msgs::MarkerArray markers){
+	
+	if( !nvg->getTakeoff() ) return;
+	
 	bool known = false;
 	bool seen = false;
+	
+	_actual_markers.clear();
+	_actual_markers.resize( markers.markers.size() );
 
 	if( markers.markers.size() > 0 ){
+
 		for(int i=0; i < markers.markers.size(); i++){
 			known = false;
 			seen = false;
 
+			if( markers.markers[i].id == 97 ) return; /* CORREGGERE QUESTO PROBLEMA */
+
 			if(isKnown(markers.markers[i].id)){
 				known = true;
-				_actual_marker = markers.markers[i];
+				_actual_markers.push_back( markers.markers[i] );
 
 				if ( nvg->getTakeoff() && _continous_correction){
 					correctWorldTransform();
 				}
 
 			}
+			/*
+			if ( nvg->getLocalizationStatus() ){
+				if(!known && markers.markers[i].id != 0 ){
 
-			if(!known && markers.markers[i].id != 0){} //To do: fai qualcosa con l'intruso
-				//cout << "Marker " << markers.markers[i].id << " unknown, INTRUDER!! \n";
+					if( !_visual_servoing && !nvg->getInterrupt() ){
+						cout << "interrompo, marker id: " << markers.markers[i].id << endl;
+
+						Eigen::Vector2d dist;
+
+						dist << markers.markers[i].pose.pose.position.x, markers.markers[i].pose.pose.position.y;
+						cout << "norm intruder: " << dist.norm() << endl;
+						if( dist.norm() < 0.35){
+							nvg->interruptAll();
+							_land_on_marker = false;
+							_servoing_marker_id = markers.markers[i].id;
+							_visual_servoing = true;
+						}
+						
+					}
+					
+				} 
+			}
+			*/
+				
 		}
 	}
-}
-
-void ArucoManager::markers_list_cb(std_msgs::UInt32MultiArray list){
-	if(list.data.size() > 0)
-		_no_markers = false;
-	else
-		_no_markers = true;
 }
 
 bool ArucoManager::isKnown(int ID){
 	bool found = false;
 	int i=0;
 
-	while(!found && i<_knownList.size()){
+	while(!found && i < _knownList.size()){
+		
 		if(ID == _knownList[i].id)
 			found = true;
 		
@@ -156,8 +227,8 @@ bool ArucoManager::isSeen(int ID){
 	bool seen = false;
 	int i=0;
 
-	while(!seen && i<_seenList.size()){
-		if(ID == _seenList[i].id)
+	while(!seen && i<_actual_markers.size()){
+		if(ID == _actual_markers[i].id)
 			seen = true;
 		
 		i++;
@@ -166,10 +237,81 @@ bool ArucoManager::isSeen(int ID){
 	return seen;
 }
 
-bool ArucoManager::getActualMarker(aruco_msgs::Marker& marker){
-	if( !_no_markers ){
-		marker = _actual_marker;
+bool ArucoManager::getActualMarkers( std::vector<aruco_msgs::Marker> markers){
+
+	if( _actual_markers.size() > 0 ){
+		
+		markers = _actual_markers;
 		return true;
+	}
+	else
+		return false;
+}
+
+bool ArucoManager::getNearestMarker( aruco_msgs::Marker& marker ){
+
+	if( _actual_markers.size() > 0 ){
+		
+		int min_norm = 0;
+		int norm = 0;
+		int nearest_id = 0;
+		int nearest_marker_index = 0;
+		Eigen::Vector3d dist;
+
+		for( int i=0; i < _actual_markers.size(); i++){
+			
+			dist << _actual_markers[i].pose.pose.position.x, _actual_markers[i].pose.pose.position.y, _actual_markers[i].pose.pose.position.z;
+			norm = dist.norm();
+
+			if( norm < min_norm ){
+				min_norm = norm;
+				nearest_id  = _actual_markers[i].id;
+				nearest_marker_index = i;
+			}
+			
+		}
+		marker = _actual_markers[ nearest_marker_index ];
+		return true;
+	}
+	else
+		return false;
+}
+
+bool ArucoManager::getNearestKnownMarker( aruco_msgs::Marker& marker ){
+
+	if( _actual_markers.size() > 0 ){
+
+		double min_norm = 1000;
+		double norm = 1000;
+		int nearest_id = 0;
+		int nearest_marker_index = 0;
+		Eigen::Vector3d dist;
+
+		for( int i=0; i < _actual_markers.size(); i++){
+			
+			if( isKnown( _actual_markers[i].id ) ){
+
+				dist << _actual_markers[i].pose.pose.position.x, _actual_markers[i].pose.pose.position.y, _actual_markers[i].pose.pose.position.z;
+				norm = dist.norm();
+
+				if( norm < min_norm ){
+					min_norm = norm;
+					nearest_id  = _actual_markers[i].id;
+					nearest_marker_index = i;
+				}
+			}
+			
+		}
+
+		if( min_norm != 0.0 ){
+			
+			marker = _actual_markers[ nearest_marker_index ];
+
+			return true;
+		}
+		else
+			return false;
+			
 	}
 	else
 		return false;
@@ -177,8 +319,10 @@ bool ArucoManager::getActualMarker(aruco_msgs::Marker& marker){
 
 bool ArucoManager::getKnownMarkerPos( const int id, Eigen::Vector3d& pos){
 
-	for(int i=0; i<_knownList.size(); i++){
+	for(int i=0; i< _knownList.size(); i++){
+
 		if(id == _knownList[i].id){
+
 			pos(0) = _knownList[i].pose.pose.position.x;
 			pos(1) = _knownList[i].pose.pose.position.y;
 			pos(2) = _knownList[i].pose.pose.position.z;
@@ -190,7 +334,23 @@ bool ArucoManager::getKnownMarkerPos( const int id, Eigen::Vector3d& pos){
 	return false;
 }
 
+bool ArucoManager::getMarker( const int id, aruco_msgs::Marker& marker){
+
+	for(int i=0; i< _actual_markers.size(); i++){
+		
+		if( _actual_markers[i].id == id ){
+
+			marker = _actual_markers[i];
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool ArucoManager::correctWorldTransform( bool hard){
+	
 	aruco_msgs::Marker marker;
 	Eigen::Vector3d dist;
 	Eigen::Vector3d dist_sum;
@@ -210,14 +370,15 @@ bool ArucoManager::correctWorldTransform( bool hard){
 	Eigen::Matrix4d H_drone_odom;
 	Eigen::Matrix4d H_odom_arena;	
 
-	R_marker << 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0;
+	//R_marker << 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0;
+	R_marker = Eigen::Matrix3d::Identity();
 
 	dist_sum = Eigen::Vector3d::Zero();
 	marker_quat_sum << 1.0, 0.0, 0.0, 0.0;
 
 	ros::Rate r_sum(10);
 	
-	if( getActualMarker(marker) ){
+	if( getNearestKnownMarker(marker) ){
 		
 		if( isKnown(marker.id) ){
 
@@ -316,7 +477,7 @@ bool ArucoManager::moveToMarker(const int id, const double height){
 
 	if( nvg->getTakeoff() ){
 
-		if( getActualMarker(marker) && marker.id == id ){
+		if( getNearestMarker(marker) && marker.id == id ){
 			cout << "sono sul marker richiesto \n";
 			return true;
 		}
@@ -371,9 +532,11 @@ void ArucoManager::visualServoing(){
 		
 		if( _visual_servoing ){
 			// Tutto calcolato in terna odom
+			
+			if( getMarker(_servoing_marker_id, marker) ){
 
-			if( getActualMarker(marker) && marker.id == _servoing_marker_id ){
-				cout << "voglio atterrare su " << _servoing_marker_id << endl;
+				cout << "visual servoing activated on: " << _servoing_marker_id << endl;
+				
 				//Marker pos in drone frame
 				dist_marker << marker.pose.pose.position.x, marker.pose.pose.position.y, marker.pose.pose.position.z;
 				att_marker << marker.pose.pose.orientation.w, marker.pose.pose.orientation.x, marker.pose.pose.orientation.y, marker.pose.pose.orientation.z;
@@ -415,24 +578,26 @@ void ArucoManager::visualServoing(){
 					theta = acos(cos_theta);
 
 					vel = (-_vel_max/_theta_max) * theta + _vel_max;
+					theta = 0.8;
 					cout << "Theta: " << theta << endl;
+					
 				}
 
 				if( _land_on_marker && ( (pos_drone_odom(2) > _min_height) && (theta < _theta_max) ) ){
 
 					//discesa
-					target(2) = pos_drone_odom(2) - vel * dt;
+					target(2) = pos_drone_odom(2) + vel * dt;
 					cout << "target in discesa : " << target.transpose() << endl;
-					cout << "vel discesa: " << -1.0*vel << endl;
+					cout << "vel discesa: " << vel << endl;
 					nvg->moveTo(target);
 
 				}
 				else if( _land_on_marker && ( (dist_marker(2) > _min_height) && (theta > _theta_max) ) ){
 
 					//Risalgo
-					target(2) = pos_drone_odom(2) + vel * dt;
+					target(2) = pos_drone_odom(2) - vel * dt;
 					cout << "target in risalita : " << target.transpose() << endl;
-					cout << "vel risalita: " << vel << endl;
+					cout << "vel risalita: " << -1.0*vel << endl;
 					nvg->moveTo(target);
 
 				}
@@ -471,7 +636,7 @@ bool ArucoManager::landOnMarker(const int id){
 
 	if( nvg->getTakeoff() ){
 
-		if( getActualMarker(marker) && marker.id == id ){
+		if( getNearestMarker(marker) && marker.id == id ){
 
 			cout << "sto già sul marker \n";
 
@@ -489,7 +654,7 @@ bool ArucoManager::landOnMarker(const int id){
 
 			cout << "vado al marker \n";
 
-			moveToMarker(id, 3.0); /** IMPOSTARE ALTEZZA **/
+			moveToMarker(id, 2.0); /** IMPOSTARE ALTEZZA **/
 			sleep(0.5);
 
 			cout << "attivo visual servoing \n";
@@ -507,6 +672,7 @@ bool ArucoManager::landOnMarker(const int id){
 	}
 }
 
+/*
 void ArucoManager::worldTransformFilter(){
 	static int count_per_id;
 	static int id_seen;
@@ -597,6 +763,7 @@ void ArucoManager::worldTransformFilter(){
 
 
 }
+*/
 
 void ArucoManager::Routine(){
 	aruco_msgs::Marker mark;
@@ -605,65 +772,113 @@ void ArucoManager::Routine(){
 	bool seq_finished = false;
 	bool moved = false;
 	bool first_takeoff = false;
+	string key;
+	int count = 0;
 
 	ros::Rate r(10);
 
-	_des_height = 3.0;
+	_des_height = 2.0;
 
 	_continous_correction = false;
 
-	while( ros::ok() ){
+	getline(cin, key);
 
-		if( !first_takeoff ){
-			cout << "TAKEOFF \n";
-			nvg->takeoff(_des_height, 0.2);
+	if(key == "p"){
+		while( ros::ok() ){
+			
+			if( !first_takeoff ){
+				cout << "TAKEOFF \n";
+				nvg->takeoff(_des_height, 0.2);
 
-			if( correctWorldTransform(true) )
-				first_takeoff = true;
-			else
-				nvg->land();
-
-			sleep(1.0);
-		}
-		else{
-
-			if(!seq_finished){
-				cout << "Sequenza \n";
-				//pos << 1.0, 4.0, 3.5;
-				//nvg->moveTo(pos);
-
-				//nvg->moveTo(pos);
-				//sleep(1.0);
+				while( !nvg->getLocalizationStatus() && count <20 ){
+					correctWorldTransform(true);
+					count ++;
+					r.sleep();
+				}
 				
-				moveToMarker(4, 3.0);
-				
-				sleep(2.0);
+				if( nvg->getLocalizationStatus() )
+					first_takeoff = true;
+				else{
+					ROS_WARN("Failed initial localization ");
+					nvg->land();
 
-				
-				//correctWorldTransform(true);
-				
-				sleep(0.5);
+				}
 
-				//moveToMarker(5, 3.5);
+			}
+			else{
+
+				if(!seq_finished){
+					cout << "Sequenza \n";
+					
+					moveToMarker(9, 2.0);
+					count = 0;
+					nvg->setLocalizationStatus(false);
+					while( !nvg->getLocalizationStatus() && count <20 ){
+						correctWorldTransform(true);
+						count ++;
+						r.sleep();
+					}
+					if( !nvg->getLocalizationStatus() )
+						nvg->land();
 				
-				//sleep(2.0);
-				//correctWorldTransform(true);
+					sleep(1.0);
+
+					nvg->moveToWps( _wps_9to3 );
+					count = 0;
+					nvg->setLocalizationStatus(false);
+					while( !nvg->getLocalizationStatus() && count <20 ){
+						correctWorldTransform(true);
+						count ++;
+						r.sleep();
+					}
+					if( !nvg->getLocalizationStatus() )
+						nvg->land();
+
+					sleep(1.0);
+
+					nvg->moveToWps( _wps_3to2 );
+					count = 0;
+					nvg->setLocalizationStatus(false);
+					while( !nvg->getLocalizationStatus() && count <20 ){
+						correctWorldTransform(true);
+						count ++;
+						r.sleep();
+					}
+					if( !nvg->getLocalizationStatus() )
+						nvg->land();
+					sleep(1.0);
+
+					nvg->moveToWps( _wps_2to6 );
+					count = 0;
+					nvg->setLocalizationStatus(false);
+					while( !nvg->getLocalizationStatus() && count <20 ){
+						correctWorldTransform(true);
+						count ++;
+						r.sleep();
+					}
+					if( !nvg->getLocalizationStatus() )
+						nvg->land();
+
+					sleep(1.0);
+
+					
+					seq_finished = true;
+					cout << "Sequenza terminata \n";
+					
+				}
 				
-				seq_finished = true;
-				cout << "Sequenza terminata \n";
+				if(seq_finished){
+
+					//landOnMarker(6);
+					//sleep(2.0);
+					nvg->land();
+					
+				}
 				
 			}
-			
-			if(seq_finished){
 
-				landOnMarker(1);
-				
-				sleep(2.0);
-			}
-			
+			r.sleep();
 		}
-
-		r.sleep();
 	}
 }
 
@@ -675,22 +890,25 @@ void ArucoManager::TestRoutine(){
 	Eigen::Vector4d pos;
 	string key;
 
-	pos << 1.0, 2.0, 2.0, 1.0;
+	pos << 16.5, 6.5, 2.0, 1.0;
+	_continous_correction = false;
 
 	while(ros::ok()){
 		
 		getline(cin, key);
 
 		if(key == "p"){
-			correctWorldTransform();
+			correctWorldTransform(true);
 			
-			/*
-			cout << "world pos: " << nvg->getWorldPos().transpose() << endl;
-			cout << "odom_pos: " << (nvg->getWorldTransform().inverse() * nvg->getWorldPos()).transpose() << endl;
-			cout << "yaw: " << nvg->getYaw() << endl;
-			cout << "sp: " << (nvg->getWorldTransform().inverse() * pos).transpose() << endl;
+			
+			//cout << "world pos: " << nvg->getWorldPos().transpose() << endl;
+			//cout << "odom_pos: " << (nvg->getWorldTransform().inverse() * nvg->getWorldPos()).transpose() << endl;
+			//cout << "yaw: " << nvg->getYaw() << endl;
+			cout << "sp: " << pos.transpose() << endl;
+			cout << "sp_odom: " << (nvg->getWorldTransform().inverse() * pos).transpose() << endl;
+			
 			cout << " \n ---- \n";
-			*/
+			
 		}
 
 
@@ -717,7 +935,7 @@ void ArucoManager::run(){
 		
 	}
 	else if( _test_mode ){
-		boost::thread transform_filter_t( &ArucoManager::worldTransformFilter, this);
+		boost::thread tf_broadcast_pose_odom_t( &Navigation::tf_broadcast_poses, nvg);
 		boost::thread test_routine_t( &ArucoManager::TestRoutine, this);
 	}
 

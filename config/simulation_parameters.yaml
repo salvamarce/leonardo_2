@@ -22,13 +22,13 @@ markers_list_topic_name: /aruco_marker_publisher/markers_list
 
 # --- Visual Servoing ---
 rate_servoing: 50
-Kp_vs: 1.5    #Proportional gain
+Kp_vs: 2.5    #Proportional gain
 Kd_vs: 1.0    #Derivative gain
 
 # --- Land on Marker ---
 theta_max: 1.0  #max cone angle
-vel_max: 5.0    #max landing speed
-min_height: 1.0 #min height to land without visual servoing
+vel_max: 10.0    #max landing speed
+min_height: 1.1 #min height to land without visual servoing
 
 # --- Markers positions ---
 #Posizione riferita al centro del marker
