@@ -5,7 +5,7 @@ trajectory_rate: 50.0
 # thresholds for "arrived state"
 pos_threshold: 0.1 #meters
 yaw_threshold: 0.2 #degree
-height_threshold: 0.10 #height to launch px4 land
+height_threshold: 0.15 #height to launch px4 land
 
 # thresholds for trajectory
 traj_pos_threshold_x: 0.05

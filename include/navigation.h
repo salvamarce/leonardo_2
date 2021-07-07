@@ -105,10 +105,13 @@ class Navigation{
 		void rotate( const double angle, double vel = 0.0); 
 
 		//Land at a desired altitude with desired velocity
-		void land( double altitude = -0.3, const double vel = 0.0 );
+		void land( double altitude = -1.0, const double vel = 0.0 );
 
 		//Activate or disable trajectory generator
 		void activateTrajectoryGenerator( const bool act) { _act_traj_gen = act;}
+
+		//Interrupt movements
+		void interruptAll() { _interrupt = true; }
 
 		//Get functions
 		const bool getTakeoff() {return _take_off;}
@@ -120,6 +123,9 @@ class Navigation{
 		const Eigen::Vector4d getWorldQuatOdom() { return _world_quat_odom; }
 		const Eigen::Vector4d getWorldQuat() { return _world_quat; }
 		const Eigen::Matrix4d getWorldTransform() { return _H_odom_arena; }
+		const bool getInterrupt() { return _interrupt; }
+		const bool getLocalizationStatus() { return _localization_status; }
+		const bool setLocalizationStatus(const bool status ) { _localization_status = status; }
 
 		//Set functions
 		void setWorldTransform(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> new_H_odom_Arena);
@@ -165,6 +171,7 @@ class Navigation{
       mavros_msgs::State _mstate;
       bool _take_off;
 		bool _act_traj_gen;
+		bool _localization_status;
 
 		// --- Clients services
 		ros::ServiceClient _arming_client;
@@ -176,6 +183,7 @@ class Navigation{
 		Eigen::Vector3d _setpoint;
 		double _cruise_vel;
 		double _traj_rate;
+		bool _interrupt;
 
 		// --- Thresholds ---
 		double _pos_threshold;
