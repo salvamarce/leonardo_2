@@ -2,12 +2,12 @@
 <launch>
 
 	<env name="GAZEBO_MODEL_PATH" value="$(find leonardo_2)/models:$(optenv GAZEBO_MODEL_PATH)" />
-    <arg name="x" default="0.5"/>
-    <arg name="y" default="3.5"/>
+    <arg name="x" default="12.5"/>
+    <arg name="y" default="9.5"/>
     <arg name="z" default="0.30"/>
     <arg name="R" default="0.0"/>
     <arg name="P" default="0.0"/>
-    <arg name="Y" default="0.7"/>
+    <arg name="Y" default="0.0"/>
     <!-- vehicle model and world -->
     <arg name="est" default="ekf2"/>
     <arg name="vehicle" default="tarot"/>

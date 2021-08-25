@@ -52,7 +52,7 @@
 		</joint>
 
 		<link name="aruco1">
-    		<pose>0.5 3.5 0.062 0 0 0.0</pose>
+    		<pose>0.5 3.5 0.062 0 0 1.57</pose>
 			<visual name="aruco1_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -97,7 +97,7 @@
 		</joint>
 
 		<link name="aruco2">
-    		<pose>18.5 2.5 0.064 0 0 0</pose>
+    		<pose>18.5 2.5 0.064 0 0 1.57</pose>
 			<visual name="aruco2_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -142,7 +142,7 @@
 		</joint>
 
 		<link name="aruco3">
-    		<pose>7.5 0.5 0.062 0 0 0</pose>
+    		<pose>7.5 0.5 0.062 0 0 1.57</pose>
 			<visual name="aruco3_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -187,7 +187,7 @@
 		</joint>
 
 		<link name="aruco4">
-    		<pose>1.5 7.5 0.062 0 0 0</pose>
+    		<pose>1.5 7.5 0.062 0 0 1.57</pose>
 			<visual name="aruco4_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -232,7 +232,7 @@
 		</joint>
 
 		<link name="aruco5">
-    		<pose>4.5 5.5 0.062 0 0 0</pose>
+    		<pose>4.5 5.5 0.062 0 0 1.57</pose>
 			<visual name="aruco5_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -277,7 +277,7 @@
 		</joint>
 
 		<link name="aruco6">
-    		<pose>17.5 7.5 0.064 0 0 0</pose>
+    		<pose>17.5 7.5 0.064 0 0 1.57</pose>
 			<visual name="aruco6_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -322,7 +322,7 @@
 		</joint>
 
 		<link name="aruco7">
-    		<pose>14.695 0.805 0.765 0 0 0</pose>
+    		<pose>14.695 0.805 0.765 0 0 1.57</pose>
 			<visual name="aruco7_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -367,7 +367,7 @@
 		</joint>
 
 		<link name="aruco8">
-    		<pose>9.4 7.9 0.064 0 0 0</pose>
+    		<pose>9.4 7.9 0.064 0 0 1.57</pose>
 			<visual name="aruco8_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -422,7 +422,7 @@
 		</joint>
 
 		<link name="aruco9">
-    		<pose>12.5 9.5 0.064 0 0 0</pose>
+    		<pose>12.5 9.5 0.064 0 0 1.57</pose>
 			<visual name="aruco9_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>
@@ -467,7 +467,7 @@
 		</joint>
 
 		<link name="aruco10">
-    		<pose>3.55 1.445 2.064 0 0 0</pose>
+    		<pose>3.55 1.445 2.064 0 0 1.57</pose>
 			<visual name="aruco10_visual">
 				<geometry>
 					<box> <size> 0.5 0.5 0.001 </size> </box>

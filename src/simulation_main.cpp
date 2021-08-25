@@ -11,9 +11,11 @@ int main(int argc, char** argv) {
    
 	ArucoManager aruco(false);
 
-	aruco.run();
+	while ( ros::ok() ){
 
-	ros::spin();
+		aruco.run();
+		ros::spin();
+	}
    
    return 0;
 }

@@ -46,13 +46,15 @@ ArucoManager::ArucoManager( bool test_mode){
 	_des_height =  0.0;
 
 	_test_mode = test_mode;
-	_continous_correction = false;
+	_continous_correction = true;
 	_new_transform = false;
 
 	_H_odom_arena_sp = Eigen::Matrix4d::Identity();
 	
 	_actual_markers.clear();
 	_actual_markers.resize(0);
+
+	_corrections = 0;
 	
 }
 
@@ -445,12 +447,12 @@ bool ArucoManager::correctWorldTransform( bool hard){
 			H_odom_arena.block<3,3>(0,0) = utilities::rotz(yaw_odom_arena);
 
 			
-			cout << "marker_pos: " << marker_pos.transpose() << " norm: " << marker_pos.norm() << endl;
-			cout << "dist: " << dist.transpose() << " norm: " << dist.norm() << endl;
-			cout << "world pos: " << nvg->getWorldPos().transpose() << endl;
-			cout << "odom_pos: " << nvg->getWorldPosOdom().transpose() << " norm: " << nvg->getWorldPosOdom().norm() << endl;
-			cout << "H_odom_arena: \n" << H_odom_arena << endl;
-			cout << "yaw_offset: " << utilities::R2XYZ( H_odom_arena.block<3,3>(0,0))(2) << endl;
+			//cout << "marker_pos: " << marker_pos.transpose() << " norm: " << marker_pos.norm() << endl;
+			//cout << "dist: " << dist.transpose() << " norm: " << dist.norm() << endl;
+			//cout << "world pos: " << nvg->getWorldPos().transpose() << endl;
+			//cout << "odom_pos: " << nvg->getWorldPosOdom().transpose() << " norm: " << nvg->getWorldPosOdom().norm() << endl;
+			//cout << "H_odom_arena: \n" << H_odom_arena << endl;
+			//cout << "yaw_offset: " << utilities::R2XYZ( H_odom_arena.block<3,3>(0,0))(2) << endl;
 			
 
 			if( hard )
@@ -459,7 +461,8 @@ bool ArucoManager::correctWorldTransform( bool hard){
 			
 			_H_odom_arena_sp =  H_odom_arena;
 			_new_transform = true;
-
+			_corrections++;
+			cout << "Correzioni: " << _corrections << endl;
 
 			return true;
 			
@@ -553,7 +556,7 @@ void ArucoManager::visualServoing(){
 				pos_marker_odom = H_marker_odom.block<3,1>(0,3);
 				XYZ_marker_odom = utilities::R2XYZ( H_marker_odom.block<3,3>(0,0) );
 
-				cout << "Marker pos odom: " << pos_marker_odom.transpose() << endl;
+				//cout << "Marker pos odom: " << pos_marker_odom.transpose() << endl;
 
 				//Turn off trajectory planner
 				nvg->activateTrajectoryGenerator(false);
@@ -565,9 +568,9 @@ void ArucoManager::visualServoing(){
 
 				target = pos_drone_odom + PD_out * dt;
 
-				cout << "Drone pos odom: " << pos_drone_odom.transpose() << endl;
-				cout << "err: " << err.transpose() << endl;
-				cout << "PD_out: " << PD_out.transpose() << endl;
+				//cout << "Drone pos odom: " << pos_drone_odom.transpose() << endl;
+				//cout << "err: " << err.transpose() << endl;
+				//cout << "PD_out: " << PD_out.transpose() << endl;
 
 				if( _land_on_marker ){
 
@@ -579,7 +582,7 @@ void ArucoManager::visualServoing(){
 
 					vel = (-_vel_max/_theta_max) * theta + _vel_max;
 					theta = 0.8;
-					cout << "Theta: " << theta << endl;
+					//cout << "Theta: " << theta << endl;
 					
 				}
 
@@ -779,7 +782,7 @@ void ArucoManager::Routine(){
 
 	_des_height = 2.0;
 
-	_continous_correction = false;
+	_continous_correction = true;
 
 	getline(cin, key);
 
@@ -806,7 +809,7 @@ void ArucoManager::Routine(){
 
 			}
 			else{
-
+				
 				if(!seq_finished){
 					cout << "Sequenza \n";
 					
@@ -824,40 +827,52 @@ void ArucoManager::Routine(){
 					sleep(1.0);
 
 					nvg->moveToWps( _wps_9to3 );
-					count = 0;
-					nvg->setLocalizationStatus(false);
-					while( !nvg->getLocalizationStatus() && count <20 ){
-						correctWorldTransform(true);
-						count ++;
-						r.sleep();
-					}
-					if( !nvg->getLocalizationStatus() )
-						nvg->land();
+					sleep(1.0);
+					landOnMarker(3);
+					sleep(1.0);
+					nvg->takeoff(2.0, 0.5);
+					
+
+					//count = 0;
+					//nvg->setLocalizationStatus(false);
+					//while( !nvg->getLocalizationStatus() && count <20 ){
+					//	correctWorldTransform(true);
+					//	count ++;
+					//	r.sleep();
+					//}
+					//if( !nvg->getLocalizationStatus() )
+					//	nvg->land();
 
 					sleep(1.0);
 
 					nvg->moveToWps( _wps_3to2 );
-					count = 0;
-					nvg->setLocalizationStatus(false);
-					while( !nvg->getLocalizationStatus() && count <20 ){
-						correctWorldTransform(true);
-						count ++;
-						r.sleep();
-					}
-					if( !nvg->getLocalizationStatus() )
-						nvg->land();
 					sleep(1.0);
+					landOnMarker(2);
+					sleep(1.0);
+					nvg->takeoff(2.0, 0.5);
+
+					//count = 0;
+					//nvg->setLocalizationStatus(false);
+					//while( !nvg->getLocalizationStatus() && count <20 ){
+					//	correctWorldTransform(true);
+					//	count ++;
+					//	r.sleep();
+					//}
+					//if( !nvg->getLocalizationStatus() )
+					//	nvg->land();
+					//sleep(1.0);
 
 					nvg->moveToWps( _wps_2to6 );
-					count = 0;
-					nvg->setLocalizationStatus(false);
-					while( !nvg->getLocalizationStatus() && count <20 ){
-						correctWorldTransform(true);
-						count ++;
-						r.sleep();
-					}
-					if( !nvg->getLocalizationStatus() )
-						nvg->land();
+					
+					//count = 0;
+					//nvg->setLocalizationStatus(false);
+					//while( !nvg->getLocalizationStatus() && count <20 ){
+					//	correctWorldTransform(true);
+					//	count ++;
+					//	r.sleep();
+					//}
+					//if( !nvg->getLocalizationStatus() )
+					//	nvg->land();
 
 					sleep(1.0);
 
@@ -869,9 +884,9 @@ void ArucoManager::Routine(){
 				
 				if(seq_finished){
 
-					//landOnMarker(6);
-					//sleep(2.0);
-					nvg->land();
+					landOnMarker(6);
+					sleep(2.0);
+					
 					
 				}
 				
@@ -926,7 +941,7 @@ void ArucoManager::run(){
 		boost::thread traj_gen_t( &Navigation::setPointPublisher, nvg);
 		sleep(1);
 		//boost::thread transform_filter_t( &ArucoManager::worldTransformFilter, this);
-		boost::thread tf_broadcast_pose_odom_t( &Navigation::tf_broadcast_poses, nvg);
+		//boost::thread tf_broadcast_poses_t( &Navigation::tf_broadcast_poses, nvg);
 		//boost::thread tf_broadcast_pose_odom_t( &Navigation::tf_broadcast_pose_odom, nvg);
 		//boost::thread tf_broadcast_pose_arena_t( &Navigation::tf_broadcast_pose_arena, nvg);
 		//boost::thread tf_broadcast_odom_arena_t( &Navigation::tf_broadcast_odom_arena, nvg);
@@ -939,7 +954,7 @@ void ArucoManager::run(){
 		boost::thread test_routine_t( &ArucoManager::TestRoutine, this);
 	}
 
-	ros::spin();
+	
 }
 
 

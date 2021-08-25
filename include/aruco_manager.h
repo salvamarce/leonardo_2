@@ -67,6 +67,7 @@ class ArucoManager{
 		double _vel_max;
 		double _min_height;
 		int _servoing_marker_id;
+		int _corrections;
 
 		double _Kp_vs;
 		double _Kd_vs;

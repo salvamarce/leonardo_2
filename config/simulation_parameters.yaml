@@ -1,5 +1,5 @@
 # --- Trajectory planning thresholds ---
-max_cruise_vel: 0.2
+max_cruise_vel: 0.5
 sp_rate: 50.0
 traj_rate: 5.0
 transform_filter_rate: 25.0
@@ -8,7 +8,7 @@ transform_filter_rate: 25.0
 pos_threshold: 0.1 #meters
 yaw_threshold: 0.2 #degree
 height_threshold: 0.15 #meters
-max_height: 3.5
+max_height: 3.0
 drone_height: 0.21
 
 # --- Mavros ---
@@ -22,8 +22,8 @@ markers_list_topic_name: /aruco_marker_publisher/markers_list
 
 # --- Visual Servoing ---
 rate_servoing: 50
-Kp_vs: 1.5    #Proportional gain
-Kd_vs: 1.0    #Derivative gain
+Kp_vs: 1.8    #Proportional gain
+Kd_vs: 1.2    #Derivative gain
 
 # --- Land on Marker ---
 theta_max: 1.0  #max cone angle
