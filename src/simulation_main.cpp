@@ -9,7 +9,7 @@ using namespace std;
 int main(int argc, char** argv) {
    ros::init(argc, argv, "simulation_main_leonardo");
    
-	ArucoManager aruco(false);
+	ArucoManager aruco;
 
 	while ( ros::ok() ){
 

@@ -1,15 +1,9 @@
 <launch>
    <rosparam file="$(find leonardo_2)/config/simulation_parameters.yaml"  />
    
-   
    <rosparam file="$(find leonardo_2)/config/paths.yaml"  />
    <rosparam file="$(find leonardo_2)/config/research.yaml"  />
-
-   <!-- <include file="$(find ocr_detector)/launch/text_detector.launch" /> -->
-
-   <include file="$(find leonardo_2)/launch/aruco_d435.launch" />
    
-
    <node pkg="leonardo_2" type="simulation_main" name="simulation_main" output="screen" />
 
 </launch>

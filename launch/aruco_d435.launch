@@ -1,9 +1,9 @@
 <launch>
 
-  <!--<node pkg="tf" type="static_transform_publisher" name="camera_base_link_tf"
-              args="0.10 0.0 -0.04 0.0 0.0 0.0 base_link camera_color_optical_frame 10" />-->
+  <!-- <node pkg="tf" type="static_transform_publisher" name="camera_base_link_tf"
+              args="0.10 0.0 -0.04 0.0 0.0 0.0 base_link camera_color_optical_frame 10" /> -->
    
-  <arg name="aruco_markerSize" default="0.5"/> <!-- in meter -->
+  <arg name="aruco_markerSize" default="0.50"/> <!-- in meter -->
   <arg name="aruco_ref_frame" default="base_link"/> <!-- leave empty and the pose will be published wrt param parent_name -->
   <arg name="aruco_camera_frame" default="camera_color_optical_frame"/>
 

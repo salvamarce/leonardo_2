@@ -1,7 +1,13 @@
 #include "navigation.h"
 
+int sign(double p){
+   if ( p < 0.0)
+      return -1;
+   else
+      return 1;
+}
+
 Navigation::Navigation() {
-   double traj_pos_thr_x, traj_pos_thr_y, traj_pos_thr_z;
 
    if( !_nh.getParam("pos_threshold", _pos_threshold)) {
       _pos_threshold = 0.03;
@@ -16,7 +22,11 @@ Navigation::Navigation() {
    }
 
    if( !_nh.getParam("max_cruise_vel", _cruise_vel)) {
-      _cruise_vel = 3.0;
+      _cruise_vel = 0.4;
+   }
+
+   if( !_nh.getParam("max_cruise_acc", _cruise_acc)) {
+      _cruise_acc = 1.2;
    }
 
    if( !_nh.getParam("max_height", _max_height)) {
@@ -47,8 +57,9 @@ Navigation::Navigation() {
       _mavros_state_topic = "/mavros/state";
    }
 
-	_first_local_pos = false;
+   // --- Publisher and Subscribers ---
    _setpoint_pub = _nh.advertise<mavros_msgs::PositionTarget>( _setpoint_topic.c_str() , 1);
+   _setpoint_bag_pub = _nh.advertise<geometry_msgs::Point>( "setpoint_bag" , 1);
    _pose_sub = _nh.subscribe( _pose_topic.c_str() , 1, &Navigation::pose_cb, this);
    _mavros_state_sub = _nh.subscribe( _mavros_state_topic.c_str(), 1, &Navigation::mavros_state_cb, this);
 
@@ -59,18 +70,40 @@ Navigation::Navigation() {
    //---
 
    // --- Trajectory ---
+   _first_local_pos = false;
    _trajectory = new CARTESIAN_PLANNER(_traj_rate);
    _take_off = false;
    _act_traj_gen = true;
    _interrupt = false;
    _localization_status = false;
 
+   // --- Drone States ---
    _H_odom_arena = Eigen::Matrix4d::Identity();
-
    _world_pos << 0.0, 0.0, _drone_height, 1.0;
    _world_pos_odom << 0.0, 0.0, 0.0, 1.0;
    _world_quat << 1.0, 0.0, 0.0, 0.0;
    _world_quat_odom << 1.0, 0.0, 0.0, 0.0;
+   _old_setpoint << 0.0, 0.0, 0.0;
+
+   // --- TOF variables ---
+   if( !_nh.getParam("critical_distance", _critical_distance)) {
+      _critical_distance = 400.0;
+   }
+   _critical_state = false;
+   load_tof_angles();
+
+}
+
+void Navigation::load_tof_angles(){
+
+   string tof;
+
+   for(int i=0; i<8; i++){
+      tof = "angle_tof_" + to_string(i);
+      
+      _nh.getParam(tof, _tof_angles(i));
+
+   }
 
 }
 
@@ -251,6 +284,7 @@ void Navigation::setPointPublisher(){
    Eigen::Vector3d des_pos;
    Eigen::Vector4d des_att;
    double des_yaw;
+   geometry_msgs::Point bag_target;
    
    mavros_msgs::PositionTarget ptarget;
    ptarget.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;
@@ -271,20 +305,23 @@ void Navigation::setPointPublisher(){
     // *** Ragiona sempre in terna odom ***
 
    des_pos  = _world_pos_odom.block<3,1>(0,0);
-   des_yaw = _mes_yaw_odom;
+   des_yaw = 0.0;
+
+   _des_pos_sp = des_pos;
+   _des_yaw_sp = des_yaw;
 
    while( ros::ok() ){
 
       if( _mstate.mode != "OFFBOARD") {
          
          des_pos  = _world_pos_odom.block<3,1>(0,0);
-         des_yaw = _mes_yaw_odom;
+         des_yaw = 0.0;
       }
       else if( isnan( _pos_sp(0) ) || isnan( _pos_sp(1) ) || isnan( _pos_sp(2) ) || isnan( _yaw_sp ) ){
 
          cout << "pos_sp is NaN " << _pos_sp.transpose() << " yaw: " << _yaw_sp << endl;
          des_pos  = _world_pos_odom.block<3,1>(0,0);
-         des_yaw = _mes_yaw_odom;
+         des_yaw = 0.0;
 
       }
       else{
@@ -303,13 +340,22 @@ void Navigation::setPointPublisher(){
 
       }
       
+      _des_pos_sp = des_pos;
+      _des_yaw_sp = des_yaw;
       ptarget.header.stamp = ros::Time::now();
       ptarget.position.x = des_pos(0);
       ptarget.position.y = des_pos(1);
-      ptarget.position.z = des_pos(2);         
+      ptarget.position.z = des_pos(2);  
+      bag_target.x = des_pos(0);
+      bag_target.y = des_pos(1);
+      bag_target.z = des_pos(2);
+      // ptarget.velocity.y = _vel_sp(1);
+      // ptarget.velocity.x = _vel_sp(0);
+      // ptarget.velocity.z = _vel_sp(2);        
       ptarget.yaw = des_yaw ;
       
       _setpoint_pub.publish( ptarget );
+      _setpoint_bag_pub.publish(bag_target);
      
       r.sleep();
    }
@@ -323,7 +369,7 @@ void Navigation::trajectoryGenerator(const Eigen::Vector3d pos, const double yaw
    geometry_msgs::PoseStamped pose_sp;
    Eigen::Vector3d XYZ;
    Eigen::Vector4d quat;
-   double time_traj_pos, time_traj_yaw;
+   double time_traj_pos, time_traj_pos_x, time_traj_pos_y, time_traj_pos_z, time_traj_yaw;
 
    poses.clear();
    times.clear();
@@ -343,10 +389,25 @@ void Navigation::trajectoryGenerator(const Eigen::Vector3d pos, const double yaw
    times.push_back(0.0);
    
    if( pos != _world_pos.block<3,1>(0,0) ){
-      time_traj_pos = (pos - _world_pos.block<3,1>(0,0)).norm() / vel;
+      time_traj_pos_x = fabs( pos(0) - _world_pos(0) ) / vel;
+      time_traj_pos_y = fabs( pos(1) - _world_pos(1) ) / vel;
+      time_traj_pos_z = fabs( pos(2) - _world_pos(2) ) / vel;
+
+      if( time_traj_pos_x >= time_traj_pos_y && time_traj_pos_x >= time_traj_pos_z )
+         time_traj_pos = time_traj_pos_x;
+      else if( time_traj_pos_y >= time_traj_pos_x && time_traj_pos_y >= time_traj_pos_z )
+         time_traj_pos = time_traj_pos_y;
+      else if( time_traj_pos_z >= time_traj_pos_x && time_traj_pos_z >= time_traj_pos_y )
+         time_traj_pos = time_traj_pos_z;
    }
    else
       time_traj_pos = 0.1;
+
+   cout << "time_x: " << time_traj_pos_x << endl;
+   cout << "time_y: " << time_traj_pos_y << endl;
+   cout << "time_z: " << time_traj_pos_z << endl;
+   cout << "time : " << time_traj_pos << endl;
+   
 
    if( yaw != _mes_yaw ){
       if( yaw > _mes_yaw )
@@ -392,7 +453,7 @@ void Navigation::trajectoryGeneratorWps(const Eigen::Ref<Eigen::Matrix<double, 3
    Eigen::Vector4d quat;
    double old_sp_yaw;
    double time_traj;
-   double time_traj_pos, time_traj_yaw;
+   double time_traj_pos, time_traj_pos_x, time_traj_pos_y, time_traj_pos_z, time_traj_yaw;
    int wps_number = 0;
 
    poses.clear();
@@ -451,11 +512,26 @@ void Navigation::trajectoryGeneratorWps(const Eigen::Ref<Eigen::Matrix<double, 3
          pose_sp.pose.orientation.z = quat(3);
       }
 
-      if( old_sp_pos != pos.block<3,1>(0,i) )
-         time_traj_pos = ( pos.block<3,1>(0,i) - old_sp_pos ).norm() / vel;
+      if( old_sp_pos != pos.block<3,1>(0,i) ){
+         time_traj_pos_x = fabs( pos(0, i) - old_sp_pos(0) ) / vel;
+         time_traj_pos_y = fabs( pos(1, i) - old_sp_pos(1) ) / vel;
+         time_traj_pos_z = fabs( pos(2, i) - old_sp_pos(2) ) / vel;
+
+         if( time_traj_pos_x >= time_traj_pos_y && time_traj_pos_x >= time_traj_pos_z )
+            time_traj_pos = time_traj_pos_x;
+         else if( time_traj_pos_y >= time_traj_pos_x && time_traj_pos_y >= time_traj_pos_z )
+            time_traj_pos = time_traj_pos_y;
+         else if( time_traj_pos_z >= time_traj_pos_x && time_traj_pos_z >= time_traj_pos_y )
+            time_traj_pos = time_traj_pos_z;
+      }
       else
          time_traj_pos = 0.1;
 
+
+      cout << "time_x: " << time_traj_pos_x << endl;
+      cout << "time_y: " << time_traj_pos_y << endl;
+      cout << "time_z: " << time_traj_pos_z << endl;
+      cout << "time : " << time_traj_pos << endl;
 
       if(i < yaw.rows()){
          if( old_sp_yaw != yaw(i) ){
@@ -477,6 +553,8 @@ void Navigation::trajectoryGeneratorWps(const Eigen::Ref<Eigen::Matrix<double, 3
 
       if(times.size() > 0)
          time_traj += times[times.size()-1];
+
+      cout << "time_traj: " << time_traj << endl;
                
       times.push_back(time_traj);
 
@@ -489,7 +567,11 @@ void Navigation::trajectoryGeneratorWps(const Eigen::Ref<Eigen::Matrix<double, 3
       else
          old_sp_yaw = old_sp_yaw;
 
-      old_sp_pos = pos.block<3,1>(0,i);
+      if(i < pos.cols()){
+         old_sp_pos = pos.block<3,1>(0,i);
+      }
+      else
+         old_sp_pos = old_sp_pos;
       
    }
    
@@ -528,6 +610,7 @@ void Navigation::moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dyn
       while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen && !_interrupt ){
 
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
+         _vel_sp << xd_traj.twist.linear.x, xd_traj.twist.linear.y, xd_traj.twist.linear.z;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
          
          sp.block<3,3>(0,0) = utilities::QuatToMat(att);
@@ -542,10 +625,8 @@ void Navigation::moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dyn
       }
 
       if( _interrupt ){
-         _pos_sp = _world_pos_odom.block<3,1>(0,0);
-         _yaw_sp = _mes_yaw_odom;
-
-         _interrupt = false;
+         _pos_sp = _old_setpoint;
+         _yaw_sp = 0.0;
       }
 
    }
@@ -553,60 +634,226 @@ void Navigation::moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dyn
 }
 
 void Navigation::moveToWps( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> dest, const double vel ) {
-
-   geometry_msgs::PoseStamped x_traj;
-   geometry_msgs::TwistStamped xd_traj;
-   geometry_msgs::AccelStamped xdd_traj;
+   /*
    Eigen::Vector4d att;
    Eigen::Vector3d XYZ;
    Eigen::Vector4d pos_sp;
-   Eigen::VectorXd yaw;
    Eigen::Matrix4d sp;
-   sp = Eigen::Matrix4d::Identity();
-
-   yaw.resize(1);
-   yaw << _mes_yaw;
-
    double des_vel;
+   double time_traj_pos_x, time_traj_pos_y, time_traj_pos_z;
+   double dt, act_time;
+   double tc_plus;
+   Eigen::Matrix<double, 3, Dynamic>  qd_c, qdd_c, tc, qi, qf;
+   Eigen::Matrix<double, Dynamic, 1> tf, overlap;
+   double qdd_c_traj;
+
+   int col = dest.cols() - 1;
 
    ros::Rate r(_traj_rate);
 
+   qd_c.resize(3,col);
+   qdd_c.resize(3,col);
+   tc.resize(3,col);
+   qi.resize(3,col);
+   qf.resize(3,col);
+   tf.resize(col,1);
+   overlap.resize(col-1, 1);
+
+   dt = 1.0/_traj_rate;
+
    if( vel == 0.0 ) 
       des_vel = _cruise_vel;
-   else 
+   else  
       des_vel = vel;
 
+   tc_plus = des_vel / _cruise_acc;
 
-   //This can work only with the trajectory generator
-   if( _act_traj_gen ){
+   
+   // qi.block<3,1>(0,0) = _world_pos.block<3,1>(0,0);
+   // qf.block<3,1>(0,0) = dest.block<3,1>(0,1);
 
-      trajectoryGeneratorWps(dest, yaw, des_vel);
+   // time_traj_pos_x = fabs( qf(0) - qi(0) ) / des_vel + 2.0 * tc_plus;
+   // time_traj_pos_y = fabs( qf(1) - qi(1) ) / des_vel + 2.0 * tc_plus;
+   // time_traj_pos_z = fabs( qf(2) - qi(2) ) / des_vel + 2.0 * tc_plus;
 
-      while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen && !_interrupt ){
+   // if( time_traj_pos_x >= time_traj_pos_y && time_traj_pos_x >= time_traj_pos_z )
+   //    tf(0) = time_traj_pos_x;
+   // else if( time_traj_pos_y >= time_traj_pos_x && time_traj_pos_y >= time_traj_pos_z )
+   //    tf(0) = time_traj_pos_y;
+   // else if( time_traj_pos_z >= time_traj_pos_x && time_traj_pos_z >= time_traj_pos_y )
+   //    tf(0) = time_traj_pos_z;
 
-         pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
-         att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
-         
-         sp.block<3,3>(0,0) = utilities::QuatToMat(att);
-         sp.block<4,1>(0,3) = pos_sp;
-         
+   // qd_c(0,0) = sign( qf(0) - qi(0) ) * des_vel;
+   // qd_c(1,0) = sign( qf(1) - qi(1) ) * des_vel;
+   // qd_c(2,0) = sign( qf(2) - qi(2) ) * des_vel;
+
+   // qdd_c(0,0) = pow( qd_c(0,0), 2) / ( qi(0) - qf(0) + qd_c(0,0) * tf(0) );
+   // qdd_c(1,0) = pow( qd_c(1,0), 2) / ( qi(1) - qf(1) + qd_c(1,0) * tf(0) );
+   // qdd_c(2,0) = pow( qd_c(2,0), 2) / ( qi(2) - qf(2) + qd_c(2,0) * tf(0) );
+
+   // tc(0,0) = 0.5 * tf(0) - 0.5 * sqrt( (pow(tf(0),2) * qdd_c(0,0) - 4*(qf(0)-qi(0))) / qdd_c(0,0) );
+   // tc(1,0) = 0.5 * tf(0) - 0.5 * sqrt( (pow(tf(0),2) * qdd_c(1,0) - 4*(qf(1)-qi(1))) / qdd_c(1,0) );
+   // tc(2,0) = 0.5 * tf(0) - 0.5 * sqrt( (pow(tf(0),2) * qdd_c(2,0) - 4*(qf(2)-qi(2))) / qdd_c(2,0) );
+   
+
+   for( int i=0; i<col; i++ ){
+
+      if( i== 0 )
+         qi.block<3,1>(0,i) = _world_pos.block<3,1>(0,0);
+      else
+         qi.block<3,1>(0,i) = dest.block<3,1>(0,i);
+
+      qf.block<3,1>(0,i) = dest.block<3,1>(0,i+1);
+
+      time_traj_pos_x = fabs( qf(0,i) - qi(0,i) ) / des_vel + 2.0 * tc_plus;
+      time_traj_pos_y = fabs( qf(1,i) - qi(1,i) ) / des_vel + 2.0 * tc_plus;
+      time_traj_pos_z = fabs( qf(2,i) - qi(2,i) ) / des_vel + 2.0 * tc_plus;
+
+      if( time_traj_pos_x >= time_traj_pos_y && time_traj_pos_x >= time_traj_pos_z )
+         tf(i) = time_traj_pos_x;
+      else if( time_traj_pos_y >= time_traj_pos_x && time_traj_pos_y >= time_traj_pos_z )
+         tf(i) = time_traj_pos_y;
+      else if( time_traj_pos_z >= time_traj_pos_x && time_traj_pos_z >= time_traj_pos_y )
+         tf(i) = time_traj_pos_z;
+
+      qd_c(0,i) = sign( qf(0,i) - qi(0,i) ) * des_vel;
+      qd_c(1,i) = sign( qf(1,i) - qi(1,i) ) * des_vel;
+      qd_c(2,i) = sign( qf(2,i) - qi(2,i) ) * des_vel;
+
+      qdd_c(0,i) = pow( qd_c(0,i), 2) / ( qi(0,i) - qf(0,i) + qd_c(0,i) * tf(i) );
+      qdd_c(1,i) = pow( qd_c(1,i), 2) / ( qi(1,i) - qf(1,i) + qd_c(1,i) * tf(i) );
+      qdd_c(2,i) = pow( qd_c(2,i), 2) / ( qi(2,i) - qf(2,i) + qd_c(2,i) * tf(i) );
+
+      tc(0,i) = 0.5 * tf(i) - 0.5 * sqrt( (pow(tf(i),2) * qdd_c(0,i) - 4*(qf(0,i)-qi(0,i))) / qdd_c(0,i) );
+      tc(1,i) = 0.5 * tf(i) - 0.5 * sqrt( (pow(tf(i),2) * qdd_c(1,i) - 4*(qf(1,i)-qi(1,i))) / qdd_c(1,i) );
+      tc(2,i) = 0.5 * tf(i) - 0.5 * sqrt( (pow(tf(i),2) * qdd_c(2,i) - 4*(qf(2,i)-qi(2,i))) / qdd_c(2,i) );
+
+   }
+   cout << "qi: " << qi << endl;
+   cout << "qf: " << qf << endl;
+   cout << "qd_c: " << qd_c << endl;
+   cout << "qdd_c: " << qdd_c << endl;
+   cout << "tc: " << tc << endl;
+   cout << "tf: " << tf.transpose() << endl;
+   
+   int i=0;
+
+   for(int i=0; i<col-1; i++){
+
+      if( tf(i) <= tf(i+1) && tf(i) <= 1.0 ){
+         cout << "if1 \n";
+         overlap(i) = tf(i);
+      }
+      else if( tf(i+1) <= tf(i) && tf(i+1) <= 1.0 ){
+         cout << "if2 \n";
+         overlap(i) = tf(i+1);
+      }
+      else{
+         cout << "if3 \n";
+         overlap(i) = 1.0;
+      }
+
+      overlap(i) = 0.0;
+      cout << "overlap( "<< i << ") " << overlap(i) << endl;
+
+   }
+
+   while( i < col && !_interrupt ){
+      cout << "ciclo # " << i << endl;
+      cout << "col: " << col << endl;
+
+      act_time = 0.0;
+
+      while( act_time <= tf(i) && !_interrupt ){
+
+         cout << "tf(i): " << tf(i) << endl;
+         cout << "act_time: " << act_time << endl;
+
+         for(int j=0; j<3; j++){
+            
+            if( i < col-1 && i > 0 ){
+               if( act_time >= (tf(i) - overlap(i-1) ) ){
+                  cout << "over con +1 \n";
+                  qdd_c_traj = qdd_c(j,i) + qdd_c(j,i+1);
+               }
+               else if( act_time <= (tf(i-1) + overlap(i-1) ) ){
+                  cout << "over con -1 \n";
+                  qdd_c_traj = qdd_c(j,i) + qdd_c(j,i-1);
+               }
+               else
+                  qdd_c_traj = qdd_c(j,i);
+            }
+            else if( i == 0 ){
+               if( act_time >= (tf(i) - overlap(0) ) ){
+                  cout << "over con +1 \n";
+                  qdd_c_traj = qdd_c(j,i) + qdd_c(j,i+1);
+               }
+               else
+                  qdd_c_traj = qdd_c(j,i);
+            }
+            else if( i == col-1 ){
+               if( act_time <= (tf(i-1) + overlap(i-1) ) ){
+                  cout << "over con -1 \n";
+                  qdd_c_traj = qdd_c(j,i) + qdd_c(j,i-1);
+               }
+               else
+                  qdd_c_traj = qdd_c(j,i);
+            }
+
+            // cout << "qdd_c_traj: " << qdd_c_traj << endl;
+
+            if( act_time <= tc(j,i) ){
+               cout << "accellero \n";
+               pos_sp(j) = qi(j,i) + 0.5 * qdd_c_traj * pow(act_time, 2);
+            }            
+            else if( act_time > tc(j,i) && act_time <= (tf(i)-tc(j,i)) ){
+               cout << "crociera \n" << endl;
+               pos_sp(j) = qi(j,i) + qdd_c_traj * tc(j,i) * (act_time - 0.5*tc(j,i));
+            }            
+            else if( act_time > (tf(i)-tc(j)) && act_time <= tf(i) ){
+               cout << "decellero \n";
+               pos_sp(j) = qf(j,i) - 0.5 * qdd_c_traj * pow( (tf(i)-act_time), 2);
+            }
+
+         }
+
+         sp.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
+         sp.block<3,1>(0,3) = pos_sp.block<3,1>(0,0);
+         sp(3,3) = 1.0;
+
          sp = _H_odom_arena.inverse() * sp;
 
          _pos_sp = sp.block<3,1>(0,3);
          _yaw_sp = utilities::R2XYZ( sp.block<3,3>(0,0))(2);
          
+         cout << "sp_map: " << pos_sp.transpose() << endl;
+         cout << "qdd_c: " << qdd_c_traj << endl;
+         // cout << "sp_odo: " << _pos_sp.transpose() << endl;
+         //cout << "act_time: " << act_time << endl;
+         act_time += dt;
          r.sleep();
       }
 
-      if( _interrupt ){
-         _pos_sp = _world_pos_odom.block<3,1>(0,0);
-         _yaw_sp = _mes_yaw_odom;
-
-         _interrupt = false;
-      }
-
+      i++;
    }
 
+   if( _interrupt ){
+      
+      _pos_sp = _world_pos_odom.block<3,1>(0,0);
+      _yaw_sp = 0.0;
+
+      _interrupt = false;
+   }
+   
+   */
+
+   for(int i=0; i<dest.cols(); i++){
+      moveTo( dest.block<3,1>(0,i) );
+      sleep(0.001);
+      if( _interrupt)
+         break;
+   }
+   
 }
 
 void Navigation::moveToWithYaw( const Eigen::Vector3d dest, const double yaw , const double vel){
@@ -652,9 +899,7 @@ void Navigation::moveToWithYaw( const Eigen::Vector3d dest, const double yaw , c
       
       if( _interrupt ){
          _pos_sp = _world_pos_odom.block<3,1>(0,0);
-         _yaw_sp = _mes_yaw_odom;
-
-         _interrupt = false;
+         _yaw_sp = 0.0;
       }
    }
    else{
@@ -666,15 +911,14 @@ void Navigation::moveToWithYaw( const Eigen::Vector3d dest, const double yaw , c
       }
       else{
          _pos_sp = _world_pos_odom.block<3,1>(0,0);
-         _yaw_sp = _mes_yaw_odom;
-
-         _interrupt = false;
+         _yaw_sp = 0.0;
       }
 
    }   
 
 }
 
+/* -- moveTo con SPLINE 
 void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 
    geometry_msgs::PoseStamped x_traj;
@@ -696,7 +940,7 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 
    _setpoint = dest;
 
-   yaw = _mes_yaw;
+   yaw = 0.0;
 
    cout << "sp_arena: " << dest.transpose() << endl;
    Eigen::Vector4d destt;
@@ -711,6 +955,7 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 
       while( _trajectory->getNext(x_traj, xd_traj, xdd_traj) && _act_traj_gen && !_interrupt ){
          pos_sp << x_traj.pose.position.x, x_traj.pose.position.y, x_traj.pose.position.z, 1.0;
+         _vel_sp << xd_traj.twist.linear.x, xd_traj.twist.linear.y, xd_traj.twist.linear.z;
          att << x_traj.pose.orientation.w, x_traj.pose.orientation.x, x_traj.pose.orientation.y, x_traj.pose.orientation.z;
          
          sp.block<3,3>(0,0) = utilities::QuatToMat(att);
@@ -721,8 +966,8 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
          _pos_sp = sp.block<3,1>(0,3);
          _yaw_sp = utilities::R2XYZ( sp.block<3,3>(0,0))(2);
          
-         //cout << "sp_map: " << pos_sp.transpose() << endl;
-         //cout << "sp_odo: " << _pos_sp.transpose() << endl;
+         // cout << "sp_map: " << pos_sp.transpose() << endl;
+         // cout << "sp_odo: " << _pos_sp.transpose() << endl;
 
          r.sleep();
       }
@@ -730,7 +975,7 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
       if( _interrupt ){
          
          _pos_sp = _world_pos_odom.block<3,1>(0,0);
-         _yaw_sp = _mes_yaw_odom;
+         _yaw_sp = 0.0;
 
          _interrupt = false;
       }
@@ -740,13 +985,144 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
       //Terna odom
       if ( !_interrupt ){
          _pos_sp = dest;
-         _yaw_sp = _mes_yaw_odom;
+         _yaw_sp = 0.0;
       }
       else{
          _pos_sp = _world_pos_odom.block<3,1>(0,0);
-         _yaw_sp = _mes_yaw_odom;
+         _yaw_sp = 0.0;
 
          _interrupt = false;
+
+      }
+
+   } 
+
+}
+*/
+
+// --- moveTo con trapezoidale ---
+void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
+
+   Eigen::Vector4d att;
+   Eigen::Vector3d XYZ;
+   Eigen::Vector4d pos_sp;
+   Eigen::Matrix4d sp;
+   double des_vel;
+   Eigen::Vector3d qd_c, qdd_c, tc, qi, qf;
+   double tf, time_traj_pos_x, time_traj_pos_y, time_traj_pos_z;
+   double dt, act_time;
+   double tc_plus;
+
+   ros::Rate r(_traj_rate);
+
+   dt = 1.0/_traj_rate;
+
+   if( vel == 0.0 ) 
+      des_vel = _cruise_vel;
+   else  
+      des_vel = vel;
+
+   _setpoint = dest;
+
+   sp = Eigen::Matrix4d::Identity();
+
+   tc_plus = des_vel / _cruise_acc;
+
+   // cout << "tc_plus: " << tc_plus << endl;
+
+   if( _act_traj_gen ){
+
+      cout << "sp_arena: " << dest.transpose() << endl;
+      Eigen::Vector4d destt;
+      destt << dest(0), dest(1), dest(2), 1.0;
+      cout << "sp_odom: " << (_H_odom_arena.inverse() * destt).transpose() << endl;
+
+      qi = _world_pos.block<3,1>(0,0);
+      qf = dest;
+
+      time_traj_pos_x = fabs( qf(0) - qi(0) ) / des_vel + 2.0 * tc_plus;
+      time_traj_pos_y = fabs( qf(1) - qi(1) ) / des_vel + 2.0 * tc_plus;
+      time_traj_pos_z = fabs( qf(2) - qi(2) ) / des_vel + 2.0 * tc_plus;
+
+      if( time_traj_pos_x >= time_traj_pos_y && time_traj_pos_x >= time_traj_pos_z )
+         tf = time_traj_pos_x;
+      else if( time_traj_pos_y >= time_traj_pos_x && time_traj_pos_y >= time_traj_pos_z )
+         tf = time_traj_pos_y;
+      else if( time_traj_pos_z >= time_traj_pos_x && time_traj_pos_z >= time_traj_pos_y )
+         tf = time_traj_pos_z;
+
+      // cout << "tf: " << tf << endl;
+
+      qd_c(0) = sign( qf(0) - qi(0) ) * des_vel;
+      qd_c(1) = sign( qf(1) - qi(1) ) * des_vel;
+      qd_c(2) = sign( qf(2) - qi(2) ) * des_vel;
+
+      // cout << "qd_c: " << qd_c.transpose() << endl;
+
+      qdd_c(0) = pow( qd_c(0), 2) / ( qi(0) - qf(0) + qd_c(0) * tf );
+      qdd_c(1) = pow( qd_c(1), 2) / ( qi(1) - qf(1) + qd_c(1) * tf );
+      qdd_c(2) = pow( qd_c(2), 2) / ( qi(2) - qf(2) + qd_c(2) * tf );
+
+      // cout << "qdd_c: " << qdd_c.transpose() << endl;
+
+      tc(0) = 0.5 * tf - 0.5 * sqrt( (pow(tf,2) * qdd_c(0) - 4*(qf(0)-qi(0))) / qdd_c(0) );
+      tc(1) = 0.5 * tf - 0.5 * sqrt( (pow(tf,2) * qdd_c(1) - 4*(qf(1)-qi(1))) / qdd_c(1) );
+      tc(2) = 0.5 * tf - 0.5 * sqrt( (pow(tf,2) * qdd_c(2) - 4*(qf(2)-qi(2))) / qdd_c(2) );
+      
+      // cout << "tc: " << tc.transpose() << endl;
+
+      act_time = 0.0;
+
+      while( act_time <= tf && !_interrupt ){
+         cout << "move_to, con traj. inter:" << _interrupt << endl;
+
+         for(int j=0; j<3; j++){
+
+            if( act_time <= tc(j) )
+               pos_sp(j) = qi(j) + 0.5 * qdd_c(j) * pow(act_time, 2);
+            
+            else if( act_time > tc(j) && act_time <= (tf-tc(j)) )
+               pos_sp(j) = qi(j) + qdd_c(j) * tc(j) * (act_time - 0.5*tc(j));
+            
+            else if( act_time > (tf-tc(j)) && act_time <= tf )
+               pos_sp(j) = qf(j) - 0.5 * qdd_c(j) * pow( (tf-act_time), 2);
+
+         }
+
+         // cout << "pos_sp: " << pos_sp.transpose() << endl;
+         sp.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
+         sp.block<3,1>(0,3) = pos_sp.block<3,1>(0,0);
+
+         sp = _H_odom_arena.inverse() * sp;
+
+         _pos_sp = sp.block<3,1>(0,3);
+         _yaw_sp = utilities::R2XYZ( sp.block<3,3>(0,0))(2);
+         
+         // cout << "sp_map: " << pos_sp.transpose() << endl;
+         // cout << "sp_odo: " << _pos_sp.transpose() << endl;
+         //cout << "act_time: " << act_time << endl;
+         act_time += dt;
+         r.sleep();
+      }
+
+      if( _interrupt ){
+         
+         _pos_sp = _world_pos_odom.block<3,1>(0,0);
+         _yaw_sp = 0.0;
+      }
+   }
+   else{
+
+         cout << "sp_odom: " << dest.transpose() << endl;
+         
+      //Terna odom
+      if ( !_interrupt ){
+         _pos_sp = dest;
+         _yaw_sp = 0.0;
+      }
+      else{
+         _pos_sp = _world_pos_odom.block<3,1>(0,0);
+         _yaw_sp = 0.0;
 
       }
 
@@ -784,10 +1160,37 @@ void Navigation::setWorldTransform(const Eigen::Ref<Eigen::Matrix<double, 4, 4>>
    _H_odom_arena = new_H_odom_Arena;
 
    _world_pos = _H_odom_arena * _world_pos_odom;
+   cout << "corretto !! \n";
 
    _localization_status = true;
 }
 
+void Navigation::tof_reads_cb( std_msgs::Float32MultiArray values ){
+
+   double min = _critical_distance;
+   int tof = 0;
+   bool critical = false;
+   
+   for(int i=0; i<8; i++){
+      if(values.data[i] <= _critical_distance){
+         critical = true;
+
+         if( values.data[i] <= min ){
+            min = values.data[i];
+            tof = i;         
+         }
+      }
+   }
+
+   if(critical){
+      _critical_state = true; 
+      cout << "Distanza critica \n";
+   }  
+
+}
+
+
+// --- TF functions ---
 
 void Navigation::tf_broadcast_poses(){
 
@@ -879,7 +1282,6 @@ Pose3D o_bl;
 
 }
  
-
 void Navigation::tf_broadcast_pose_arena(){
 
     tf::Transform transform;

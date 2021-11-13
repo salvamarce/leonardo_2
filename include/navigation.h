@@ -2,6 +2,7 @@
 #include "boost/thread.hpp"
 #include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/TwistStamped.h"
+#include "std_msgs/Float32MultiArray.h"
 //---mavros_msgs
 #include "mavros_msgs/State.h"
 #include "mavros_msgs/CommandBool.h"
@@ -44,7 +45,7 @@ using namespace Eigen;
 using namespace std;
 
 
-
+// --- Socket and TF stuff ---
 struct Pose3D {
 	float x;
 	float y;
@@ -60,7 +61,6 @@ struct Poses3D {
 	Pose3D o_a;
 	Pose3D bl_o;
 };
-
 
 //Creazione socket in SCRITTURA
 inline int create_socket(char* dest, int port, int *sock) {
@@ -83,36 +83,39 @@ inline int create_socket(char* dest, int port, int *sock) {
 	return error;
 }
 
+// --- Navigation class ---
+
 class Navigation{
 	public:
 		Navigation ();
 
-		//Check if the setpoint is reached
+		//Check if the setpoint is reached (already used in move functions)
       bool arrived( const Eigen::Vector3d pos_sp, const double yaw_sp );
 		bool arrived( const Eigen::Vector3d pos_sp );
 		bool arrived( const double yaw_sp );
 		
 		//Perform a takeoff at a desired altitude with desired velocity
 		void takeoff( const double altitude, double vel = 0.0 ); 
-		
-		//Move to a desired position with a desired velocity
-		void moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> dest, const Eigen::Ref<Eigen::VectorXd> yaw , const double vel = 0.0 );
-		void moveToWps( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> dest, const double vel = 0.0 );
-		void moveToWithYaw( const Eigen::Vector3d dest, const double yaw , const double vel = 0.0 );
-		void moveTo( const Eigen::Vector3d dest, const double vel = 0.0 );
-
-		//Rotate with a desired yaw and velocity
-		void rotate( const double angle, double vel = 0.0); 
 
 		//Land at a desired altitude with desired velocity
 		void land( double altitude = -1.0, const double vel = 0.0 );
+		
+		/* Move to a desired position with a desired velocity
+		all theese functions uses world(arena) coordinate */		
+		void moveTo( const Eigen::Vector3d dest, const double vel = 0.0 );
+		void moveToWithYaw( const Eigen::Vector3d dest, const double yaw , const double vel = 0.0 );
+		void moveToWps( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> dest, const double vel = 0.0 );
+		void moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> dest, const Eigen::Ref<Eigen::VectorXd> yaw , const double vel = 0.0 );
+		
+		//Rotate with a desired yaw and velocity
+		void rotate( const double angle, double vel = 0.0); 
 
 		//Activate or disable trajectory generator
 		void activateTrajectoryGenerator( const bool act) { _act_traj_gen = act;}
 
 		//Interrupt movements
 		void interruptAll() { _interrupt = true; }
-
+		void resetInterrupt() { _interrupt = false; }
 		//Get functions
 		const bool getTakeoff() {return _take_off;}
 		const bool getLand() {return !_take_off;}
@@ -128,28 +131,33 @@ class Navigation{
 		const bool setLocalizationStatus(const bool status ) { _localization_status = status; }
 
 		//Set functions
+		//Set the trasformation matrix form odom to world
 		void setWorldTransform(const Eigen::Ref<Eigen::Matrix<double, 4, 4>> new_H_odom_Arena);
 
+		//Publisher to the mavros topic, in odom coordinates
 		void setPointPublisher();
 
+		//TF functions
 		void tf_broadcast_pose_arena();
 		void tf_broadcast_pose_odom();
 		void tf_broadcast_odom_arena();
 		void rviz_sp_publisher();
 		void tf_broadcast_poses();
+
 	private:
 		void pose_cb ( geometry_msgs::PoseStamped msg );
 		void mavros_state_cb( mavros_msgs::State mstate);
+		void tof_reads_cb ( std_msgs::Float32MultiArray values );
 		void trajectoryGenerator(const Eigen::Vector3d pos, const double yaw, const double vel);
 		void trajectoryGeneratorWps(const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> pos, const Eigen::Ref<Eigen::VectorXd> yaw , const double vel);
-
+		void load_tof_angles();
 
 		ros::NodeHandle _nh;
 		ros::Publisher _setpoint_pub;
+		ros::Publisher _setpoint_bag_pub;
 		ros::Subscriber _pose_sub;
 		ros::Subscriber _mavros_state_sub;
 		tf::TransformBroadcaster _broadcaster;
-      bool _first_local_pos;
 
 		string _setpoint_topic;
 		string _mavros_state_topic;
@@ -157,7 +165,10 @@ class Navigation{
 
 		// --- Desired state
 		Vector3d _pos_sp;
+		Vector3d _vel_sp;
+		Vector3d _des_pos_sp;
 		double _yaw_sp;
+		double _des_yaw_sp;
 		double _sp_rate;
 		
 		// --- Drone state ---
@@ -172,6 +183,7 @@ class Navigation{
       bool _take_off;
 		bool _act_traj_gen;
 		bool _localization_status;
+		bool _first_local_pos;
 
 		// --- Clients services
 		ros::ServiceClient _arming_client;
@@ -181,7 +193,9 @@ class Navigation{
       // --- Trajectory planner ---
       CARTESIAN_PLANNER *_trajectory = NULL;
 		Eigen::Vector3d _setpoint;
+		Eigen::Vector3d _old_setpoint;
 		double _cruise_vel;
+		double _cruise_acc;
 		double _traj_rate;
 		bool _interrupt;
 
@@ -191,5 +205,11 @@ class Navigation{
 		double _height_threshold;
 		double _max_height;
 		double _drone_height;
+
+		// --- TOF variables ---
+		// std_msgs::Float32MultiArray 
+		Eigen::Matrix<double,8,1> _tof_angles;
+		double _critical_distance;
+		bool _critical_state;
 
 };

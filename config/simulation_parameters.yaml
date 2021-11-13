@@ -1,8 +1,14 @@
 # --- Trajectory planning thresholds ---
-max_cruise_vel: 0.5
+max_cruise_vel: 0.4
+max_cruise_acc: 0.5
 sp_rate: 50.0
-traj_rate: 5.0
-transform_filter_rate: 25.0
+traj_rate: 20.0
+transform_filter_rate: 20.0
+
+# --- Cooperative robots ---
+cobot_1: 22
+cobot_2: 26
+corr_z: true
 
 # thresholds for "arrived state"
 pos_threshold: 0.1 #meters
@@ -10,6 +16,18 @@ yaw_threshold: 0.2 #degree
 height_threshold: 0.15 #meters
 max_height: 3.0
 drone_height: 0.21
+marker_time_dt: 0.5 #max difference between marker timestamp and time
+
+# TOF params DA MISURARE
+critical_distance: 0.30 # m
+angle_tof_0: 1.0472  #rad
+angle_tof_1: 2.0944  #rad
+angle_tof_2: 2.6180  #rad
+angle_tof_3: 3.6652  #rad
+angle_tof_4: 4.1888  #rad
+angle_tof_5: 5.2360  #rad
+angle_tof_6: 5.7596  #rad
+angle_tof_7: 0.5236  #rad
 
 # --- Mavros ---
 setpoint_topic: /mavros/setpoint_raw/local
@@ -21,13 +39,14 @@ markers_topic_name: /aruco_marker_publisher/markers
 markers_list_topic_name: /aruco_marker_publisher/markers_list
 
 # --- Visual Servoing ---
-rate_servoing: 50
-Kp_vs: 1.8    #Proportional gain
-Kd_vs: 1.2    #Derivative gain
+rate_servoing: 30
+Kp_vs: 10.0    #Proportional gain 45
+Kd_vs: 2.0    #Derivative gain 10
+norm_threshold: 0.50 #norm threshold for the PD out
 
 # --- Land on Marker ---
-theta_max: 1.0  #max cone angle
-vel_max: 20.0    #max landing speed
+theta_max: 0.2  #max cone angle
+vel_max: 0.5    #max landing speed
 min_height: 1.0 #min height to land without visual servoing
 
 # --- Markers positions ---

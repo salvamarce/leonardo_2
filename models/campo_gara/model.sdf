@@ -482,6 +482,30 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
+
+			<!-- Area intruso -->
+		<joint name="ground_intruso_joint" type="fixed">
+			<parent>ground</parent>
+			<child>intruso</child>
+		</joint>
+
+
+		<link name="intruso">
+    		<pose>9.5 2.0 0.062 0 0 1.57</pose>
+			<visual name="intruso_visual">
+				<geometry>
+					<box> <size> 0.19 0.19 0.001 </size> </box>
+				</geometry>
+				<material>
+					<script>
+						<uri>model://campo_gara/materials/scripts</uri>
+						<uri>model://campo_gara/materials/textures</uri>
+						<name>campo_gara/intruso</name>
+					</script>
+				</material>
+				<cast_shadows>false</cast_shadows>
+			</visual>
+		</link> 
 			
   </model>
 </sdf>
