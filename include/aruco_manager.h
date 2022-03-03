@@ -1,6 +1,6 @@
 #include "ros/ros.h"
 #include "aruco_msgs/MarkerArray.h"
-#include "navigation.h"
+#include "leonardo_2/navigation.h"
 #include "std_msgs/UInt32MultiArray.h"
 #include "std_msgs/Float32MultiArray.h"
 #include "std_msgs/Bool.h"

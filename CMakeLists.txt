@@ -36,9 +36,9 @@ include_directories(/usr/include/eigen3)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES leonardo_2
-#  CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf
+  INCLUDE_DIRS include
+  LIBRARIES ${PROJECT_NAME}
+  CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf
 #  DEPENDS system_lib
 )
 
@@ -54,6 +54,13 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+add_library(${PROJECT_NAME}
+  src/navigation.cpp
+  src/planner_spline.cpp
+)
+
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+
 
 add_executable( aruco_manager src/aruco_manager.cpp src/test_aruco.cpp src/navigation.cpp src/planner_spline.cpp)
 target_link_libraries( aruco_manager ${catkin_LIBRARIES})
@@ -68,7 +75,21 @@ target_link_libraries( t265_matrix ${catkin_LIBRARIES})
 add_executable( socket_tf_listener src/socket_tf_listener.cpp)
 target_link_libraries( socket_tf_listener ${catkin_LIBRARIES})
 
+add_executable( test_att_target_main src/test_attitude_target.cpp src/navigation.cpp src/planner_spline.cpp)
+target_link_libraries( test_att_target_main ${catkin_LIBRARIES})
+
 
 catkin_install_python(PROGRAMS scripts/display_map.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(
+  TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )

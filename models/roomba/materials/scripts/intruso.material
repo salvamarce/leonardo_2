@@ -1,0 +1,14 @@
+material roomba/intruso
+{
+  technique
+  {
+    pass
+    {
+      texture_unit
+      {
+        texture intruso.png
+        scale 1 1
+      }
+    }
+  }
+}

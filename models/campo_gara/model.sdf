@@ -23,7 +23,7 @@
 		</link>
 				
 		<!-- Takeoff/landing pitches -->
-		<!-- Area 1 -->
+		<!-- Area 1 
 		<joint name="ground_p1_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p1</child>
@@ -67,8 +67,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link>
-
-		<!-- Area 2 -->
+		-->
+		<!-- Area 2 
 		<joint name="ground_p2_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p2</child>
@@ -112,8 +112,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link>
-		
-		<!-- Area 3 -->
+		-->
+		<!-- Area 3 
 		<joint name="ground_p3_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p3</child>
@@ -157,8 +157,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
-	
-		<!-- Area 4 -->
+		-->
+		<!-- Area 4 
 		<joint name="ground_p4_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p4</child>
@@ -202,8 +202,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
-
-		<!-- Area 5 -->
+		-->
+		<!-- Area 5 
 		<joint name="ground_p5_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p5</child>
@@ -247,8 +247,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
-
-		<!-- Area 6 -->
+		-->
+		<!-- Area 6 
 		<joint name="ground_p6_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p6</child>
@@ -292,8 +292,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
-		
-		<!-- Area 7 -->
+		-->
+		<!-- Area 7 
 		<joint name="ground_p7_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p7</child>
@@ -337,8 +337,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
-
-		<!-- Area 8 -->
+		-->
+		<!-- Area 8 
 		<joint name="ground_p8_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p8</child>
@@ -382,8 +382,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
-
-		<!-- Area 9 -->
+		-->
+		<!-- Area 9 
 		<joint name="ground_p9_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p9</child>
@@ -437,8 +437,8 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
-
-		<!-- Area 10 -->
+		-->
+		<!-- Area 10 
 		<joint name="ground_p10_joint" type="fixed">
 			<parent>ground</parent>
 			<child>p10</child>
@@ -482,8 +482,9 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
-
-			<!-- Area intruso -->
+		-->
+		
+		<!-- Area intruso 
 		<joint name="ground_intruso_joint" type="fixed">
 			<parent>ground</parent>
 			<child>intruso</child>
@@ -506,6 +507,7 @@
 				<cast_shadows>false</cast_shadows>
 			</visual>
 		</link> 
+		-->
 			
   </model>
 </sdf>

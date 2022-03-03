@@ -1,10 +1,10 @@
-#include "navigation.h"
+#include "leonardo_2/navigation.h"
 
-int sign(double p){
+double sign(double p){
    if ( p < 0.0)
-      return -1;
+      return -1.0;
    else
-      return 1;
+      return 1.0;
 }
 
 Navigation::Navigation() {
@@ -59,7 +59,8 @@ Navigation::Navigation() {
 
    // --- Publisher and Subscribers ---
    _setpoint_pub = _nh.advertise<mavros_msgs::PositionTarget>( _setpoint_topic.c_str() , 1);
-   _setpoint_bag_pub = _nh.advertise<geometry_msgs::Point>( "setpoint_bag" , 1);
+   _setpoint_att_pub = _nh.advertise<mavros_msgs::AttitudeTarget>( "/mavros/setpoint_raw/attitude" , 1);
+   //_setpoint_bag_pub = _nh.advertise<geometry_msgs::Point>( "setpoint_bag" , 1);
    _pose_sub = _nh.subscribe( _pose_topic.c_str() , 1, &Navigation::pose_cb, this);
    _mavros_state_sub = _nh.subscribe( _mavros_state_topic.c_str(), 1, &Navigation::mavros_state_cb, this);
 
@@ -90,7 +91,15 @@ Navigation::Navigation() {
       _critical_distance = 400.0;
    }
    _critical_state = false;
+   _pubSpPos = true;
+   _pubSpAtt = false;
+   _pubSpVel = false;
    load_tof_angles();
+
+   _wroll = 0.0;
+   _wpitch = 0.0;
+   _wyaw = 0.0;
+   _thrust = 0.5;
 
 }
 
@@ -165,9 +174,9 @@ void Navigation::takeoff( const double altitude, double vel) {
 
    moveTo(pos_sp, vel);
 
-   while( !arrived( pos_sp )) {
-      sleep(0.001);
-   }
+   // while( !arrived( pos_sp )) {
+   //    sleep(0.001);
+   // }
 
    _take_off = true;
 
@@ -354,12 +363,100 @@ void Navigation::setPointPublisher(){
       // ptarget.velocity.z = _vel_sp(2);        
       ptarget.yaw = des_yaw ;
       
-      _setpoint_pub.publish( ptarget );
-      _setpoint_bag_pub.publish(bag_target);
+      if(_pubSpPos)
+         _setpoint_pub.publish( ptarget );
+      // _setpoint_bag_pub.publish(bag_target);
      
       r.sleep();
    }
 
+}
+
+void Navigation::setPointPublisherVel(){
+
+   ros::Rate r(_sp_rate);
+
+   Eigen::Vector3d des_vel;
+   Eigen::Vector3d des_pos;
+   double des_yaw;
+   double des_yaw_rate;
+   
+   mavros_msgs::PositionTarget ptarget;
+   ptarget.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;
+   ptarget.type_mask =
+   mavros_msgs::PositionTarget::IGNORE_PX |
+   mavros_msgs::PositionTarget::IGNORE_PY |
+   mavros_msgs::PositionTarget::IGNORE_PZ |
+   mavros_msgs::PositionTarget::IGNORE_AFX |
+   mavros_msgs::PositionTarget::IGNORE_AFY |
+   mavros_msgs::PositionTarget::IGNORE_AFZ |
+   // mavros_msgs::PositionTarget::FORCE |
+   mavros_msgs::PositionTarget::IGNORE_YAW;
+
+   while( !_first_local_pos )
+      usleep(0.1*1e6);
+   ROS_INFO("First local pose arrived!");
+
+    // *** Ragiona sempre in terna odom ***
+
+   while( ros::ok() ){
+
+      if( _mstate.mode != "OFFBOARD") {
+         
+         // des_pos  = _world_pos_odom.block<3,1>(0,0);
+         des_vel  << 0.0, 0.0, 0.0;
+         // des_yaw = 0.0;
+         des_yaw_rate = 0.0;
+      }
+      else{
+
+         // des_pos = _pos_sp;
+         des_vel = _vel_sp;
+         // des_yaw = _yaw_sp;
+         des_yaw_rate = _wyaw;
+
+      }
+      
+      ptarget.header.stamp = ros::Time::now();
+      // ptarget.position.x = des_pos(0);
+      // ptarget.position.y = des_pos(1);
+      // ptarget.position.z = des_pos(2);
+      ptarget.velocity.x = des_vel(0);
+      ptarget.velocity.y = des_vel(1);
+      ptarget.velocity.z = des_vel(2);  
+      // ptarget.yaw = des_yaw;
+      ptarget.yaw_rate = des_yaw_rate;
+      
+      if(_pubSpVel)
+         _setpoint_pub.publish( ptarget );
+
+      r.sleep();
+   }
+
+}
+
+void Navigation::setPointPublisherAtt(){
+   
+   mavros_msgs::AttitudeTarget target;
+   target.type_mask = mavros_msgs::AttitudeTarget::IGNORE_ATTITUDE;
+   ros::Rate r(_sp_rate*2);
+
+   while(ros::ok()){
+      if( _mstate.mode != "OFFBOARD") {
+         
+         target.header.stamp = ros::Time::now();
+         target.body_rate.x = _wroll;
+         target.body_rate.y = _wpitch;
+         target.body_rate.z = _wyaw;          
+         target.thrust = _thrust;
+         
+         if(_pubSpAtt)
+            _setpoint_att_pub.publish( target );
+
+      }
+
+      r.sleep();
+   }
 }
 
 void Navigation::trajectoryGenerator(const Eigen::Vector3d pos, const double yaw, const double vel){
@@ -918,6 +1015,72 @@ void Navigation::moveToWithYaw( const Eigen::Vector3d dest, const double yaw , c
 
 }
 
+void Navigation::useAttPub(bool flag){
+   if(flag){
+      _pubSpAtt = true;
+      _pubSpPos = false;
+      _pubSpVel = false;
+   }
+   else{
+      _pubSpAtt = false;
+      _pubSpPos = true;
+      _pubSpVel = false;
+   }
+}
+
+void Navigation::useVelPub(bool flag){
+   mavros_msgs::SetMode hold_set_mode;
+   hold_set_mode.request.custom_mode = "ALTCTL";
+   //---
+
+   if( _set_mode_client.call(hold_set_mode) && hold_set_mode.response.mode_sent){
+      ROS_INFO("Altitude mode enabled");
+   }
+
+   while(_mstate.mode != "ALTCTL" ) usleep(0.1*1e6);
+   ROS_INFO("Vehicle in altitude");
+
+   if(flag){
+      _pubSpAtt = false;
+      _pubSpPos = false;
+      _pubSpVel = true;
+   }
+   else{
+      _pubSpAtt = false;
+      _pubSpPos = true;
+      _pubSpVel = false;
+   }
+
+   sleep(0.5);
+   mavros_msgs::SetMode offb_set_mode;
+   offb_set_mode.request.custom_mode = "OFFBOARD";
+   //---
+
+   if( _set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
+      ROS_INFO("OFFBOARD mode enabled");
+   }
+   while(_mstate.mode != "OFFBOARD" ) usleep(0.1*1e6);
+   ROS_INFO("Vehicle in offboard");
+}
+
+void Navigation::setAttSp(double aT, double w_roll, double w_pitch, double w_yaw){
+   
+   _thrust = aT;
+   _wroll = w_roll;
+   _wpitch = w_pitch;
+   _wyaw = w_yaw;
+
+}
+
+void Navigation::setVelSp(double vx, double vy, double vz, double w_yaw){
+   
+   // _pos_sp = dest;
+   // _yaw_sp = yaw;
+   _vel_sp << vx, vy, vz;
+   _wyaw = w_yaw;
+
+}
+
 /* -- moveTo con SPLINE 
 void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 
@@ -1000,6 +1163,11 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 }
 */
 
+void Navigation::moveInstant( const Eigen::Vector3d dest, const double yaw ){
+   _pos_sp = dest;
+   _yaw_sp = yaw;
+}
+
 // --- moveTo con trapezoidale ---
 void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
 
@@ -1074,7 +1242,7 @@ void Navigation::moveTo( const Eigen::Vector3d dest, const double vel){
       act_time = 0.0;
 
       while( act_time <= tf && !_interrupt ){
-         cout << "move_to, con traj. inter:" << _interrupt << endl;
+         //cout << "move_to, con traj. inter:" << _interrupt << endl;
 
          for(int j=0; j<3; j++){
 
@@ -1188,7 +1356,6 @@ void Navigation::tof_reads_cb( std_msgs::Float32MultiArray values ){
    }  
 
 }
-
 
 // --- TF functions ---
 

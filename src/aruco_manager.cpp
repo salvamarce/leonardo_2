@@ -1045,7 +1045,7 @@ void ArucoManager::Routine(){
 	_des_height = 2.0;
 
 	_continous_correction = false;
-
+	
 	getline(cin, key);
 
 	if(key == "p"){

@@ -8,9 +8,10 @@
 #include "mavros_msgs/CommandBool.h"
 #include "mavros_msgs/SetMode.h"
 #include "mavros_msgs/CommandTOL.h"
-#include <mavros_msgs/PositionTarget.h>
+#include "mavros_msgs/PositionTarget.h"
+#include "mavros_msgs/AttitudeTarget.h"
 //---
-#include "utils.h"
+#include "../utils.h"
 #include "Eigen/Dense"
 #include <Eigen/Geometry>
 #include <Eigen/StdVector>
@@ -19,7 +20,7 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
-#include "planner_spline.h"
+#include "../planner_spline.h"
 
 #include <mutex>          // std::mutex
 #include "visualization_msgs/MarkerArray.h"
@@ -90,7 +91,7 @@ class Navigation{
 		Navigation ();
 
 		//Check if the setpoint is reached (already used in move functions)
-      bool arrived( const Eigen::Vector3d pos_sp, const double yaw_sp );
+      	bool arrived( const Eigen::Vector3d pos_sp, const double yaw_sp );
 		bool arrived( const Eigen::Vector3d pos_sp );
 		bool arrived( const double yaw_sp );
 		
@@ -106,7 +107,8 @@ class Navigation{
 		void moveToWithYaw( const Eigen::Vector3d dest, const double yaw , const double vel = 0.0 );
 		void moveToWps( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> dest, const double vel = 0.0 );
 		void moveToWpsWithYaw( const Eigen::Ref<Eigen::Matrix<double, 3, Dynamic>> dest, const Eigen::Ref<Eigen::VectorXd> yaw , const double vel = 0.0 );
-		
+		void moveInstant( const Eigen::Vector3d dest, const double yaw );
+
 		//Rotate with a desired yaw and velocity
 		void rotate( const double angle, double vel = 0.0); 
 
@@ -136,6 +138,13 @@ class Navigation{
 
 		//Publisher to the mavros topic, in odom coordinates
 		void setPointPublisher();
+		void setPointPublisherAtt();
+		void setPointPublisherVel();
+
+		void useAttPub(bool flag);
+		void useVelPub(bool flag);
+		void setAttSp(double aT, double t_roll, double t_pitch, double t_yaw);
+		void setVelSp(double vx, double vy, double vz, double w_yaw);
 
 		//TF functions
 		void tf_broadcast_pose_arena();
@@ -154,6 +163,7 @@ class Navigation{
 
 		ros::NodeHandle _nh;
 		ros::Publisher _setpoint_pub;
+		ros::Publisher _setpoint_att_pub;
 		ros::Publisher _setpoint_bag_pub;
 		ros::Subscriber _pose_sub;
 		ros::Subscriber _mavros_state_sub;
@@ -162,6 +172,7 @@ class Navigation{
 		string _setpoint_topic;
 		string _mavros_state_topic;
 		string _pose_topic;
+		double _sp_rate;
 
 		// --- Desired state
 		Vector3d _pos_sp;
@@ -169,7 +180,10 @@ class Navigation{
 		Vector3d _des_pos_sp;
 		double _yaw_sp;
 		double _des_yaw_sp;
-		double _sp_rate;
+		double _wroll;
+		double _wpitch;
+		double _wyaw;
+		double _thrust;
 		
 		// --- Drone state ---
 		Vector4d _world_pos;
@@ -184,6 +198,9 @@ class Navigation{
 		bool _act_traj_gen;
 		bool _localization_status;
 		bool _first_local_pos;
+		bool _pubSpPos;
+		bool _pubSpAtt;
+		bool _pubSpVel;
 
 		// --- Clients services
 		ros::ServiceClient _arming_client;

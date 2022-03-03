@@ -1,6 +1,6 @@
 #include "ros/ros.h"
 #include "aruco_manager.h"
-#include "navigation.h"
+#include "leonardo_2/navigation.h"
 #include "Eigen/Dense"
 #include "boost/thread.hpp"
 

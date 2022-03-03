@@ -2,8 +2,8 @@
 <launch>
 
     <env name="GAZEBO_MODEL_PATH" value="$(find leonardo_2)/models:$(optenv GAZEBO_MODEL_PATH)" />
-    <arg name="x" value="17"/>
-    <arg name="y" value="7"/>
+    <arg name="x" value="0.5"/>
+    <arg name="y" value="0.5"/>
     <arg name="z" value="0.30"/>
     <arg name="R" value="0.0"/>
     <arg name="P" value="0.0"/>

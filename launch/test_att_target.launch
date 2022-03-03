@@ -1,0 +1,9 @@
+<launch>
+   <rosparam file="$(find leonardo_2)/config/simulation_parameters.yaml"  />
+   <rosparam file="$(find leonardo_2)/config/paths.yaml"  />
+   <rosparam file="$(find leonardo_2)/config/research.yaml"  />
+   <node pkg="leonardo_2" type="test_att_target_main" name="test_att_target_main" output="screen" >
+
+   </node>
+
+</launch>
